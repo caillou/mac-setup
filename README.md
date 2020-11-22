@@ -5,7 +5,10 @@
 brew install \
   fish \
   git \
-  thefuck
+  the_silver_searcher \
+  thefuck \
+  ruby \
+  wget
 sudo bash -c 'echo /usr/local/bin/fish >> /etc/shells'
 chsh -s /usr/local/bin/fish
 ```
