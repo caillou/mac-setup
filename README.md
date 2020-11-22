@@ -28,4 +28,6 @@ brew cask install \
   spotify \
   microsoft-teams \
   spotify
+
+cd ~/Downloads && wget https://raw.githubusercontent.com/caillou/mac-setup/main/ayu%20dark.itermcolors && open "ayu Dark.itermcolors"
 ```
