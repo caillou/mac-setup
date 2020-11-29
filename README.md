@@ -21,6 +21,7 @@ brew cask install \
   docker \
   google-chrome \
   hammerspoon \
+  handbrake \
   istat-menus \
   iterm2 \
   microsoft-teams \
