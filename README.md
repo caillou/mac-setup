@@ -17,20 +17,21 @@ Now close the terminal.
 
 ```bash
 brew cask install \
-  iterm2 \
+  alfred \
   docker \
   google-chrome \
-  alfred \
-  istat-menus \
   hammerspoon \
-  visual-studio-code \
+  istat-menus \
+  iterm2 \
+  microsoft-teams \
   nextcloud \
-  whatsapp \
-  telegram \
   signal \
   spotify \
-  microsoft-teams \
-  spotify
+  spotify \
+  telegram \
+  visual-studio-code \
+  vlc \
+  whatsapp
 
 cd ~/Downloads && wget https://raw.githubusercontent.com/caillou/mac-setup/main/ayu%20dark.itermcolors && open "ayu Dark.itermcolors"
 ```
