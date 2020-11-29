@@ -8,7 +8,9 @@ brew install \
   the_silver_searcher \
   thefuck \
   ruby \
-  wget
+  wget \
+  youtube-dl \
+  libdvdcss
 sudo bash -c 'echo /usr/local/bin/fish >> /etc/shells'
 chsh -s /usr/local/bin/fish
 ```
