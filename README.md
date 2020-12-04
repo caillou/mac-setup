@@ -32,6 +32,7 @@ brew cask install \
   spotify \
   spotify \
   telegram \
+  unrar \
   visual-studio-code \
   vlc \
   whatsapp
