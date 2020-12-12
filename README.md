@@ -34,6 +34,7 @@ Now close the terminal.
 ```bash
 brew cask install \
   alfred \
+  discord \
   docker \
   google-chrome \
   hammerspoon \
