@@ -46,6 +46,7 @@ brew cask install \
   nextcloud \
   signal \
   spotify \
+  steam \
   telegram \
   visual-studio-code \
   vlc \
