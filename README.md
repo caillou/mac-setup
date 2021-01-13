@@ -33,10 +33,11 @@ chsh -s /usr/local/bin/fish
 Now close the terminal.
 
 ```bash
-brew cask install \
+brew install --cask \
   alfred \
   discord \
   docker \
+  godot \
   google-chrome \
   hammerspoon \
   handbrake \
