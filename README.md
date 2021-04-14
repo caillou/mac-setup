@@ -35,7 +35,6 @@ Now close the terminal.
 ```bash
 brew install --cask \
   alfred \
-  choosy \
   discord \
   docker \
   godot \
