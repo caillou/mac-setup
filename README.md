@@ -43,6 +43,7 @@ brew install --cask \
   handbrake \
   istat-menus \
   iterm2 \
+  microsoft-edge \
   microsoft-teams \
   nextcloud \
   signal \
