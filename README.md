@@ -33,10 +33,12 @@ chsh -s /usr/local/bin/fish
 Now close the terminal.
 
 ```bash
+brew tap homebrew/cask-fonts
 brew install --cask \
   alfred \
   discord \
   docker \
+  font-ibm-plex \
   godot \
   google-chrome \
   hammerspoon \
