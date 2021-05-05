@@ -23,6 +23,7 @@ brew install \
   rename \
   ruby \
   sshuttle \
+  tig \
   the_silver_searcher \
   thefuck \
   tree \
