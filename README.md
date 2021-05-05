@@ -64,4 +64,5 @@ git config --global user.email "pierre.spring@caillou.ch"
 git config --global user.name "Pierre Spring"
 
 sudo mas install 668208984 # GIPHY CAPTURE
+sudo mas install 425264550 # Blackmagic Disk Speed Test
 ```
