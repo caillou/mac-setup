@@ -11,6 +11,7 @@ xcode-select --install
 brew install \
   ffmpeg \
   fish \
+  fzf \
   git \
   glib \
   graphicsmagick \
