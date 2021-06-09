@@ -22,6 +22,7 @@ brew install \
   postgresql \
   rename \
   ruby \
+  sshuttle \
   the_silver_searcher \
   thefuck \
   tree \
