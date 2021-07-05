@@ -39,7 +39,7 @@ Now close the terminal.
 brew tap homebrew/cask-fonts
 brew install --cask \
   alfred \
-  mongodb-compass \
+  boop \
   discord \
   docker \
   font-ibm-plex \
@@ -51,6 +51,7 @@ brew install --cask \
   iterm2 \
   microsoft-edge \
   microsoft-teams \
+  mongodb-compass \
   nextcloud \
   signal \
   spotify \
