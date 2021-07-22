@@ -19,6 +19,7 @@ brew install \
   imagemagick \
   libdvdcss \
   mas \
+  maven \
   postgresql \
   rename \
   ruby \
@@ -40,6 +41,7 @@ brew tap homebrew/cask-fonts
 brew install --cask \
   alfred \
   boop \
+  brave-browser \
   discord \
   docker \
   font-ibm-plex \
