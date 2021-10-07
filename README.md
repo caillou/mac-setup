@@ -39,6 +39,7 @@ Now close the terminal.
 brew tap homebrew/cask-fonts
 brew install --cask \
   alfred \
+  mongodb-compass \
   discord \
   docker \
   font-ibm-plex \
