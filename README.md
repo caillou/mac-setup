@@ -59,6 +59,7 @@ brew install --cask \
   spotify \
   steam \
   telegram \
+  the-unarchiver \
   visual-studio-code \
   vlc \
   whatsapp
