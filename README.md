@@ -21,6 +21,7 @@ brew install \
   mas \
   maven \
   postgresql \
+  rar \
   rename \
   ruby \
   sshuttle \
