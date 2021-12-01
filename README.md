@@ -17,6 +17,7 @@ brew install \
   graphicsmagick \
   htop \
   imagemagick \
+  jesseduffield/lazygit/lazygit \
   libdvdcss \
   mas \
   maven \
