@@ -74,3 +74,7 @@ git config --global user.name "Pierre Spring"
 sudo mas install 668208984 # GIPHY CAPTURE
 sudo mas install 425264550 # Blackmagic Disk Speed Test
 ```
+
+## ZSH Setup
+
+For my ZSH setup, check the following link: https://gist.github.com/caillou/adf85eca6318b2d189d7e7af39b332ed#file-zsh-macos-md
