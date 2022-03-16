@@ -79,3 +79,11 @@ sudo mas install 425264550 # Blackmagic Disk Speed Test
 ## ZSH Setup
 
 For my ZSH setup, check the following link: https://gist.github.com/caillou/adf85eca6318b2d189d7e7af39b332ed#file-zsh-macos-md
+
+## pyenv
+
+1. Install `pyenv`: `brew install pyenv`
+2. Config shell for `pyenv`: c.f. Step 2 of https://github.com/pyenv/pyenv#basic-github-checkout
+3. `pyenv install 3.10.2`
+4. `pyenv global 3.10.2`
+5. `npm install`
