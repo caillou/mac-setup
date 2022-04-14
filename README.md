@@ -63,6 +63,7 @@ brew install --cask \
   telegram \
   the-unarchiver \
   threema \
+  tower \
   visual-studio-code \
   vlc \
   whatsapp
