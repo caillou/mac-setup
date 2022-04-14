@@ -43,11 +43,9 @@ brew tap homebrew/cask-fonts
 brew install --cask \
   alfred \
   boop \
-  brave-browser \
   discord \
   docker \
   font-ibm-plex \
-  godot \
   google-chrome \
   hammerspoon \
   handbrake \
@@ -63,10 +61,8 @@ brew install --cask \
   telegram \
   the-unarchiver \
   threema \
-  tower \
   visual-studio-code \
-  vlc \
-  whatsapp
+  vlc
 
 cd ~/Downloads && wget https://raw.githubusercontent.com/caillou/mac-setup/main/ayu%20dark.itermcolors && open "ayu Dark.itermcolors"
 
