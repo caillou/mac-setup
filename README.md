@@ -40,6 +40,7 @@ Now close the terminal.
 
 ```bash
 brew tap homebrew/cask-fonts
+brew tap homebrew/cask-versions
 brew install --cask \
   alfred \
   boop \
@@ -47,6 +48,7 @@ brew install --cask \
   docker \
   font-ibm-plex \
   google-chrome \
+  google-chrome-canary \
   hammerspoon \
   handbrake \
   istat-menus \
