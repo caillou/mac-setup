@@ -168,6 +168,25 @@ Read-back for tests: iterate `DSStore.open(path, 'r')`, filter `e.filename == 'D
 
 Finder's AppleScript dictionary on 26.6 has no Date Added column (`elsv` enum: name, modification date, creation date, size, kind, label, version, comment), so `osascript` cannot do this. `FXPreferredViewStyle` only affects folders without their own record.
 
+### Is there a cleaner way than editing `.DS_Store`? (researched 2026-09-10)
+
+No supported one. Apple's position (DTS) is that `.DS_Store` is Finder-owned and only Finder scripting is supported, and Finder's dictionary has never had a Date Added column. Verdicts:
+
+- Finder AppleScript `sort column of list view options`: works for the eight legacy columns only, not Date Added (enum `elsv` on 26.6.2; same reported for 10.11 to 10.13). https://www.macscripter.net/t/finder-sort-by-date-added/69315
+- System Events UI scripting of the View Options window (Cmd+J, `AXSystemFloatingWindow`, checkbox "Date Added", "Sort By" popup): worked on 10.11 in a published script, untested on 26, needs Accessibility and Automation consent, brittle.
+- Hammerspoon via `hs.axuielement`/`hs.eventtap`: same route, no published example exists; a live probe on this Mac could not find the View Options window in the accessibility tree, so unverified.
+- `defaults` templates (`FK_DefaultListViewSettingsV2`, `FK_StandardViewSettings`): apply only to folders without their own record; Downloads always has one. https://discussions.apple.com/thread/256107879
+- Deleting the Downloads record plus `defaults delete com.apple.finder DownloadsFolderListViewSettingsVersion` to make Finder re-seed Downloads sorted by Date Added: plausible, undocumented, one-shot, and loses the home folder's window state. Not chosen.
+- Third-party writers (`ds_store`, `finderconf`, `DSStore`, `riddick`): none has a Date Added feature; `finderconf` writes only `lsvP`/`vstl`, which Tahoe ignores for this. Closest precedent: https://github.com/Jingyuan-Zheng/finder-folder-sizes patches `lsvC` in place and restarts Finder, tested on 26.5.
+- Copying a whole `.DS_Store` from another Mac: works but coarse, and Finder rewrites lazily.
+- MDM profiles and xattrs: cannot express per-folder view settings. https://raw.githubusercontent.com/apple/device-management/release/mdm/profiles/com.apple.finder.yaml
+
+Key format fact: Finder 26 keeps two list-view records per folder. `lsvC` has `columns` as an ordered array with `dateAdded` and is authoritative; `lsvp` is a legacy dict-keyed mirror without `dateAdded`. Write `lsvC`. It is undocumented in every `.DS_Store` format reference and the `ds_store` library has no codec for it, so encode the binary plist yourself.
+
+Improvement adopted for the writer: instead of overwriting with the captured blob, read the existing `lsvC` if present, merge (`sortColumn = dateAdded`, `dateAdded` visible and descending, add the column if missing), and write nothing when already correct. Fall back to the captured blob when no record exists. Optionally also set `FK_DefaultListViewSettingsV2:sortColumn` via PlistBuddy so folders without a record match.
+
+Side effect of the probe on this Mac: a "Terminal wants to control Finder" Automation prompt may be pending, and a Finder window may have been opened. Nothing under `~` was modified.
+
 ## 5. Research conclusions (with sources)
 
 ### Tooling
