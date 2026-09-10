@@ -96,12 +96,13 @@ At the end it prints the short list of things macOS refuses to let a script do, 
 
 ### Shell
 
-- fish config is templated for the home directory. Abbreviations, locale, pager, path additions, Homebrew shellenv, asdf init and the Karabiner restart function are managed.
+- fish config is written with home-relative paths (`~`, `$HOME`) and is not a template, so `chezmoi re-add` works on it. Abbreviations, locale, pager, path additions, Homebrew shellenv, asdf init and the Karabiner restart function are managed.
 - The frozen theme file that fish 4.3 generated from the Ayu Dark colours is managed as a plain conf.d file. A new conf.d file holds the settings currently in universal variables that are worth keeping: XDG config home, emoji width, and the Pure prompt options that differ from Pure's defaults. Which Pure options differ is determined by diffing against Pure's defaults during the migration.
 - The universal variables file is not managed. Migration on the current Mac erases the dead entries: BrowserStack, pyenv, Spacefish, the 28 colour variables superseded by the theme file.
 - Plugins are z, Pure and fzf via fisher, declared in the `fish_plugins` file. A change-triggered script installs fisher if absent and runs `fisher update`.
 - fish becomes the login shell: appended to `/etc/shells` if missing, then `chsh`, both guarded.
-- The zsh login profile, zshrc, bash profile and readline config are managed as today, templated for the home directory. The asdf line changes to the Homebrew asdf form.
+- The zsh login profile, zshrc, bash profile and readline config are managed as today, written with home-relative paths. The asdf line changes to the Homebrew asdf form.
+- Templates are limited to files that truly vary per machine: chezmoi's own config, the Brewfile, the defaults script, the iTerm2 preference keys. Everything else is a plain file so edits made in the home directory can be copied back with `chezmoi re-add`.
 
 ### Git, GitHub, ssh
 
@@ -158,6 +159,21 @@ One change-triggered script, plain POSIX sh, that quits System Settings first, w
 ### Manual-steps report
 
 - The last script prints a checklist: admin password prompts explained; Privacy & Security approvals for Karabiner and Hammerspoon (Input Monitoring, Accessibility, driver extension); Azure DevOps ssh key paste; App Store sign-in on personal Macs; Self Service requests on managed Macs; first dictation activation; pointer speed and display settings to verify; Karabiner first launch for the profile.
+
+### README
+
+The README is the operating manual and is written together with the repo. Sections, in order:
+
+- Setup: the one-line bootstrap, what it asks (group flags), what it detects (managed), what it prompts for (admin password, gh browser login), and how long the Command Line Tools and Homebrew steps take.
+- Re-sync: `chezmoi update`, and `chezmoi diff` to preview.
+- Editing loop: edit a file in place, `chezmoi status` and `chezmoi diff` to see drift, `chezmoi re-add` to copy it back (or `chezmoi edit` to skip that step), commit and push from `chezmoi cd`, `chezmoi update` on the other Mac. `chezmoi merge` for conflicts.
+- Two fish rules: settings go in `config.fish` or `conf.d`, never `set -U`, because universal variables are not synced; themes are fine because fish writes them to a managed file.
+- Template rule: which files are templates and why, and that those are edited on the repo side, never re-added.
+- Adding a package: `brew install`, then add the line to the matching Brewfile block and commit; or add the line first and `chezmoi apply`. `brew bundle cleanup` as the periodic drift check.
+- Adding a macOS setting: how to find a key (defaults diff before and after a change in System Settings, macos-defaults.com, nix-darwin modules), where to add it in the defaults script, and which process to restart.
+- Managed Mac notes: what is skipped, how to override detection, how to read the missing-apps list.
+- Manual checklist: the same list the final script prints.
+- Layout: what lives where in the source directory, and the numbering of scripts.
 
 ### Migration of the current Mac
 
