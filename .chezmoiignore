@@ -13,9 +13,6 @@ docs/**
 tests
 tests/**
 
-# Kept until the README issue replaces it; not a dotfile either way.
-macos
-
 # Hammerspoon writes its Spoons itself at runtime (EmmyLua and friends). The
 # three Lua files next to it are managed; this folder never is, so `chezmoi add`
 # cannot drag it in and no apply ever touches it.

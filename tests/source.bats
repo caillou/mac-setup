@@ -19,7 +19,7 @@ managed_targets() {
   [ "$status" -eq 0 ]
   # `.chezmoiscripts/...` entries are the scripts chezmoi runs; they are never
   # written into the destination, so they are not repo-only files.
-  for target in README.md lefthook.yml docs tests macos .iterm2 \
+  for target in README.md lefthook.yml docs tests .iterm2 \
     .github .editorconfig .chezmoi.toml.tmpl .chezmoiignore; do
     refute_line "$target"
   done
