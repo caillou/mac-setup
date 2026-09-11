@@ -1,0 +1,13 @@
+# Activate with: lefthook install
+#
+# The same three checks the GitHub Actions job runs.
+
+pre-commit:
+  parallel: true
+  commands:
+    bats:
+      run: bats tests
+    shellcheck:
+      run: tests/shellcheck-scripts.sh
+    secrets:
+      run: tests/secrets-check.sh

@@ -1,0 +1,23 @@
+{{/* chezmoi's own config, generated at `chezmoi init`.
+
+Machine facts live here so they can be corrected by hand afterwards:
+edit ~/.config/chezmoi/chezmoi.toml and the next apply uses the new values.
+
+Every prompt carries a default, so `chezmoi init --promptDefaults` works
+unattended (CI). promptBoolOnce keeps an answer that is already in the config,
+so re-running `chezmoi init` never asks again. */}}
+{{- $enrolled := false -}}
+{{- if eq .chezmoi.os "darwin" -}}
+{{-   $enrollment := output "sh" "-c" "profiles status -type enrollment 2>/dev/null || true" -}}
+{{-   $enrolled = contains "MDM enrollment: Yes" $enrollment -}}
+{{- end -}}
+{{- $managed := promptBoolOnce . "managed" "Managed by an employer" $enrolled -}}
+{{- $personal := promptBoolOnce . "personal" "Install the personal package group" false -}}
+{{- $embedded := promptBoolOnce . "embedded" "Install the embedded package group" false -}}
+
+sourceDir = {{ .chezmoi.sourceDir | quote }}
+
+[data]
+managed = {{ $managed }}
+personal = {{ $personal }}
+embedded = {{ $embedded }}

@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tooling
+        run: brew install chezmoi bats-core shellcheck
+
+      - name: Initialise chezmoi from the checkout
+        run: chezmoi init --source "$GITHUB_WORKSPACE" --promptDefaults
+
+      - name: Tests
+        run: bats tests
+
+      - name: Shellcheck the rendered scripts
+        run: tests/shellcheck-scripts.sh
+
+      - name: Secrets check
+        run: tests/secrets-check.sh
+
+      # Dry-run validates templates and file targets. chezmoi does not execute
+      # scripts in dry-run; their content is covered by the steps above.
+      - name: Dry-run apply
+        run: chezmoi apply --dry-run --verbose
