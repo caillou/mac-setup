@@ -101,7 +101,7 @@ Finder' ]
   downloads_view
   [ "$status" -eq 0 ]
   [[ "$output" == *'uv is not installed yet'* ]]
-  [[ "$output" == *'chezmoi state delete-bucket --bucket=scriptState'* ]]
+  [[ "$output" == *'chezmoi state delete-bucket --bucket=entryState'* ]]
   [ ! -f "$KILLALLLOG" ]
 }
 

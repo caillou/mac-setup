@@ -23,7 +23,7 @@ KILLALL="${DOTFILES_KILLALL:-killall}"
 # say how to force it.
 if ! has_command "$UV"; then
   echo "downloads view: uv is not installed yet, skipping. Once it is, run"
-  echo "  chezmoi state delete-bucket --bucket=scriptState && chezmoi apply"
+  echo "  chezmoi state delete-bucket --bucket=entryState && chezmoi apply"
   exit 0
 fi
 
