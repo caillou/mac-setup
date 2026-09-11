@@ -122,7 +122,11 @@ AC: sleep 0; displaysleep 10; womp 1; powernap 1. Battery: sleep 1; displaysleep
 
 ### Display (not readable without sudo)
 
-True Tone and auto-brightness live in `/var/root/Library/Preferences/com.apple.CoreBrightness.plist` (root only), keyed by user and display. No `com.apple.CoreBrightness` user domain, no `com.apple.iokit.AmbientLightSensor` domain on 26.6. Pending: `sudo plutil -p /var/root/Library/Preferences/com.apple.CoreBrightness.plist` on this Mac to confirm both are off and learn the key names. Restart daemon: `sudo killall corebrightnessd`.
+Read on 2026-09-11 with `sudo plutil -p /var/root/Library/Preferences/com.apple.CoreBrightness.plist` (root only; no user-level `com.apple.CoreBrightness` or `com.apple.iokit.AmbientLightSensor` domain exists on 26.6):
+
+- Auto-brightness: `DisplayPreferences` → one dict per display UUID → `AutoBrightnessEnable => false` on this Mac (two of four display entries carry the key; the others are external displays with only `BrightnessLevelNits`). Scriptable: with sudo, for every entry under `DisplayPreferences` set `AutoBrightnessEnable` to false (PlistBuddy or plistlib as root), then `sudo killall corebrightnessd`, then read back. The built-in panel's UUID differs per machine, so iterate rather than hardcode.
+- True Tone: no key anywhere in that file (searched for Tone, Adapt, Harmony, Enable; Apple's internal name is Harmony and it appears only in analytics timestamps). Likely never toggled here, i.e. at its default. Check the switch in System Settings → Displays on this Mac to decide the target value. Without a known key, True Tone is UI-only: Hammerspoon accessibility scripting of the Displays pane, or manual.
+- Also present, informational: Night Shift (`CBUser-*` → `CBBlueReductionStatus`, `BlueReductionEnabled 0`, schedule off), keyboard backlight auto (`KeyboardBacklightABEnabled true`, idle dim time 0).
 
 ### Apply without logout
 
