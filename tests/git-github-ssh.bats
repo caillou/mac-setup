@@ -376,7 +376,7 @@ refute_logged() {
 
   # The wifi goes off: the API can no longer confirm the token, but the token
   # is still in the local gh config, so this Mac is logged in and stays out of
-  # the browser. The key upload is the only thing that notices.
+  # the browser.
   : >"$TMP/offline"
   : >"$LOG"
   github_and_ssh
@@ -395,9 +395,11 @@ refute_logged() {
   github_and_ssh
   [ "$status" -eq 0 ]
 
+  : >"$LOG"
   github_and_ssh
   [ "$status" -eq 0 ]
   [ "$output" = '' ]
+  refute_logged 'ssh-key add'
   [ "$(origin_url)" = 'git@github.com:caillou/dotfiles.git' ]
 }
 
@@ -440,6 +442,77 @@ refute_logged() {
   [ "$status" -eq 0 ]
   [[ "$output" == *'admin:public_key'* ]]
   [ "$(origin_url)" = 'https://github.com/caillou/dotfiles.git' ]
+}
+
+@test "the key goes to GitHub once and an offline apply afterwards says nothing" {
+  stubs
+  authenticated
+  checkout https://github.com/caillou/dotfiles.git
+  github_and_ssh
+  [ "$status" -eq 0 ]
+  logged "gh ssh-key add $HOME/.ssh/id_rsa.pub --title $(hostname)"
+  [ "$(cat "$DOTFILES_STATE/ssh-key-uploaded")" = "$HOME/.ssh/id_rsa.pub" ]
+
+  # The upload was the last network call on the settled path: with the wifi
+  # off it failed, and the script reported that failure on every apply.
+  : >"$TMP/offline"
+  : >"$LOG"
+  github_and_ssh
+  [ "$status" -eq 0 ]
+  [ "$output" = '' ]
+  refute_logged 'ssh-key add'
+}
+
+@test "a failed upload leaves no marker and the next apply uploads again" {
+  stubs
+  authenticated
+  : >"$TMP/upload-fails"
+  checkout https://github.com/caillou/dotfiles.git
+  github_and_ssh
+  [ "$status" -eq 0 ]
+  [ ! -f "$DOTFILES_STATE/ssh-key-uploaded" ]
+
+  rm "$TMP/upload-fails"
+  : >"$LOG"
+  github_and_ssh
+  [ "$status" -eq 0 ]
+  logged "gh ssh-key add $HOME/.ssh/id_rsa.pub --title $(hostname)"
+  [ "$(cat "$DOTFILES_STATE/ssh-key-uploaded")" = "$HOME/.ssh/id_rsa.pub" ]
+}
+
+@test "a key deleted and regenerated at the same path is uploaded again" {
+  stubs
+  authenticated
+  checkout https://github.com/caillou/dotfiles.git
+  github_and_ssh
+  [ "$status" -eq 0 ]
+  logged "gh ssh-key add $HOME/.ssh/id_rsa.pub --title $(hostname)"
+  [ "$(cat "$DOTFILES_STATE/ssh-key-uploaded")" = "$HOME/.ssh/id_rsa.pub" ]
+
+  # The key is thrown away and the next apply makes a new one on the same
+  # path. The marker is about the key that is gone, and GitHub has never seen
+  # this one, so a marker left standing would mean a silent apply and a push
+  # that fails on permission denied.
+  rm -f "$HOME"/.ssh/id_rsa "$HOME"/.ssh/id_rsa.pub
+  : >"$LOG"
+  github_and_ssh
+  [ "$status" -eq 0 ]
+  logged '-t rsa -b 4096'
+  [ -f "$HOME/.ssh/id_rsa" ]
+  logged "gh ssh-key add $HOME/.ssh/id_rsa.pub --title $(hostname)"
+  [ "$(cat "$DOTFILES_STATE/ssh-key-uploaded")" = "$HOME/.ssh/id_rsa.pub" ]
+}
+
+@test "a marker left by another key uploads the key this Mac has now" {
+  stubs
+  authenticated
+  checkout https://github.com/caillou/dotfiles.git
+  mkdir -p "$DOTFILES_STATE"
+  printf '%s\n' "$HOME/.ssh/id_ed25519.pub" >"$DOTFILES_STATE/ssh-key-uploaded"
+  github_and_ssh
+  [ "$status" -eq 0 ]
+  logged "gh ssh-key add $HOME/.ssh/id_rsa.pub --title $(hostname)"
+  [ "$(cat "$DOTFILES_STATE/ssh-key-uploaded")" = "$HOME/.ssh/id_rsa.pub" ]
 }
 
 @test "without gh the script says so and touches no repository" {

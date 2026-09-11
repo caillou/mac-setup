@@ -39,9 +39,18 @@ chmod 700 "$SSH_DIR"
 # RSA 4096 because Azure DevOps accepts nothing else and has no API to add a
 # key. The marker tells the report to print the public half for the paste into
 # Azure DevOps, which is the one step that stays manual.
+#
+# The upload marker below holds a key path, and a regenerated key lands on the
+# path the old one had, so generating clears it. Without that, deleting
+# ~/.ssh/id_rsa* and re-applying would leave a key GitHub never hears about:
+# the upload would be skipped on a marker written for a key that is gone, the
+# origin is already ssh, and the first push would fail on a silent apply. There
+# is no `unmark` helper, so the marker file goes the way the display script
+# drops its own stale one.
 if ! has_private_key; then
   "$KEYGEN" -q -t rsa -b 4096 -C "$(hostname)" -N '' -f "$KEY"
   mark ssh-key-generated "$KEY.pub"
+  rm -f "$STATE/ssh-key-uploaded"
   printf 'github-and-ssh: generated %s\n' "$KEY"
 fi
 
@@ -87,15 +96,23 @@ if ! "$KEYGEN" -F github.com -f "$KNOWN_HOSTS" >/dev/null 2>&1; then
   fi
 fi
 
-# Adding a key GitHub already has exits 0, so this runs on every apply. Its
-# output is swallowed to keep a settled machine silent; a real failure is
-# reported and stops here, because the ssh origin below would be useless
-# without the key on the account.
-if [ -f "$KEY.pub" ]; then
+# The upload is the last network call on the settled path, and the marker is
+# what keeps it off that path: without it every apply POSTs the key, which is
+# harmless online, because adding a key GitHub already has exits 0, but offline
+# it fails and a settled Mac stops here with a message it has no reason to
+# print. The marker holds the public key path and the generation branch above
+# clears it, so a new key uploads again whichever path it takes.
+#
+# Only an exit-0 upload writes it. The output is swallowed to keep a settled
+# machine silent; a real failure is reported and stops here, because the ssh
+# origin below would be useless without the key on the account, and the next
+# apply tries again.
+if [ -f "$KEY.pub" ] && [ "$(marker_value ssh-key-uploaded)" != "$KEY.pub" ]; then
   if ! upload="$("$GH" ssh-key add "$KEY.pub" --title "$(hostname)" 2>&1)"; then
     printf 'github-and-ssh: uploading %s to GitHub failed: %s\n' "$KEY.pub" "$upload"
     exit 0
   fi
+  mark ssh-key-uploaded "$KEY.pub"
 fi
 
 # The bootstrap clones with chezmoi's built-in git, which speaks HTTPS only, so
