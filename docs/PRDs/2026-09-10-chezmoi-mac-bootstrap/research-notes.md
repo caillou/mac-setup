@@ -8,7 +8,7 @@ Companion to [prd.md](./prd.md). Everything here was read from the personal Mac 
 - `pierre.spring` is in the local admin group (`dscl . -read /Groups/admin GroupMembership`). Verify with `sudo -v` before bootstrapping.
 - Xcode Command Line Tools: `xcode-select --install` opened the dialog and downloaded normally, so Intune does not block it.
 - The Downloads view hack (section 9) was applied there and verified: Finder shows Downloads in list view with a Date Added column, sorted by it.
-- No desktop widgets present. Dock is Apple's default set. Wallpaper appears black. Click-wallpaper-to-show-desktop was active and annoying; `defaults write com.apple.WindowManager EnableStandardClickToShowDesktop -bool false` fixes it immediately.
+- No desktop widgets present. Dock is Apple's default set. Wallpaper appears black. (On this Mac, verified by screenshot on 2026-09-11: wallpaper black, desktop files visible in a column top-right with small icons and labels on the right.) Click-wallpaper-to-show-desktop was active and annoying; `defaults write com.apple.WindowManager EnableStandardClickToShowDesktop -bool false` fixes it immediately.
 
 ## 2. This Mac inventory
 
@@ -102,7 +102,7 @@ Desktop icons (`DesktopViewSettings.IconViewSettings`): arrangeBy kind; iconSize
 
 ### Window manager (`com.apple.WindowManager`)
 
-EnableStandardClickToShowDesktop 0; HideDesktop 1 (desktop items hidden); StandardHideWidgets 0 here, set 1 on new machines (widgets hidden on Desktop); StageManagerHideWidgets 0; AutoHide 0; EnableTiledWindowMargins 0; EnableTilingOptionAccelerator 0; AppWindowGroupingBehavior 1.
+EnableStandardClickToShowDesktop 0; HideDesktop 1 (= hide items *in Stage Manager*, per nix-darwin's WindowManager catalogue); StandardHideDesktopIcons unset here (= desktop items shown; a 2026-09-11 screenshot of this Mac confirms files are visible top-right). Desired on all machines: StandardHideDesktopIcons 1 (items hidden), HideDesktop 1, StandardHideWidgets 1 (widgets hidden), StageManagerHideWidgets 0; AutoHide 0; EnableTiledWindowMargins 0; EnableTilingOptionAccelerator 0; AppWindowGroupingBehavior 1. Source: https://raw.githubusercontent.com/nix-darwin/nix-darwin/master/modules/system/defaults/WindowManager.nix
 
 ### Dock (`com.apple.dock`)
 
