@@ -110,7 +110,7 @@ repo() {
   [ "$status" -eq 0 ]
 }
 
-@test "gh reads the co alias out of the managed config" {
+@test "gh reads the co alias out of the managed config and leaves it untouched" {
   apply
   run grep -q 'co: pr checkout' "$HOME/.config/gh/config.yml"
   [ "$status" -eq 0 ]
@@ -119,9 +119,25 @@ repo() {
   # No token anywhere near this: GH_CONFIG_DIR is the isolated home and
   # `gh alias list` is a local read.
   export GH_CONFIG_DIR="$HOME/.config/gh"
+  cp "$HOME/.config/gh/config.yml" "$TMP/gh-config-as-applied.yml"
+
   run gh alias list
   [ "$status" -eq 0 ]
   [[ "$output" == *'pr checkout'* ]]
+
+  # gh appends its `version: "1"` schema marker to any config it reads without
+  # one, and that rewrite is what stops every later apply at an overwrite
+  # prompt. The managed file already carries it, so gh writes nothing back.
+  run cmp "$TMP/gh-config-as-applied.yml" "$HOME/.config/gh/config.yml"
+  [ "$status" -eq 0 ]
+  # Reading the config is never a reason to invent a credentials file.
+  [ ! -e "$HOME/.config/gh/hosts.yml" ]
+}
+
+@test "the gh folder and its config keep gh's own private modes" {
+  apply
+  [ "$(stat -f '%Lp' "$HOME/.config/gh")" = 700 ]
+  [ "$(stat -f '%Lp' "$HOME/.config/gh/config.yml")" = 600 ]
 }
 
 @test "ssh forwards the agent, keeps the connection alive and finds the key" {

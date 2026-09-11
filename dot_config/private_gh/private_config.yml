@@ -5,3 +5,8 @@
 # repo is public, and the GitHub script logs each machine in on its own.
 aliases:
     co: pr checkout
+# gh's config-schema marker, written exactly as gh writes it. Any gh command
+# appends it to a file that lacks it, and the rewrite would stop every later
+# apply at "has changed since chezmoi last wrote it?". With it here the file is
+# byte-identical to what gh leaves behind, so an apply stays quiet.
+version: "1"
