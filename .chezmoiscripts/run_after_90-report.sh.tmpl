@@ -1,5 +1,153 @@
 #!/bin/sh
 # Report: prints the checklist of what macOS will not let a script do.
-# Filled in by "02. manual-steps report".
+#
+# It runs last on every apply. Whatever this machine can be asked directly it
+# asks now -- which apps are missing from /Applications, whether Karabiner has
+# written its config file yet -- so the checklist is never a stale copy of an
+# earlier run. A marker is read only where the answer cannot be recomputed:
+# whether an ssh key was generated for this machine, how `brew bundle` ended,
+# and whether the pointer-speed and auto-brightness writes took.
 {{ template "facts.sh" . }}
+{{- $groups := list "core" }}
+{{- if .personal }}{{ $groups = append $groups "personal" }}{{ end }}
+{{- if .embedded }}{{ $groups = append $groups "embedded" }}{{ end }}
+# The report may never fail the apply, and one step tripping over something
+# must not swallow the steps after it, so the preamble's `set -e` is dropped
+# here and the exit status is pinned to zero for every route out.
+set +e
+trap 'exit 0' EXIT
+
+steps=0
+
+# step <headline>  -- opens a numbered item
+step() {
+  steps=$((steps + 1))
+  printf '\n%d. %s\n' "$steps" "$1"
+}
+
+# note <line>  -- a detail under the item just opened
+note() {
+  printf '   %s\n' "$1"
+}
+
+printf '\n=== What is left to do by hand on this Mac ===\n'
+
+# --- Privacy & Security approvals ------------------------------------------
+#
+# Whether an approval was already given lives in the TCC database, which is
+# unreadable without Full Disk Access, so these are gated on the app being
+# installed and are repeated on every apply.
+
+if app_present 'Karabiner-Elements.app'; then
+  step 'Approve Karabiner-Elements in System Settings > Privacy & Security:'
+  note 'Input Monitoring for Karabiner-Elements, karabiner_grabber and'
+  note 'karabiner_observer, Accessibility for Karabiner-Elements, and the'
+  note 'driver extension under General > Login Items & Extensions.'
+
+  # Karabiner writes its config file on first launch and the build step edits
+  # that file, so an installed-but-never-launched Karabiner is a manual step.
+  # Karabiner honours XDG_CONFIG_HOME, so the path is resolved the same way.
+  karabiner_config="${XDG_CONFIG_HOME:-$HOME/.config}/karabiner/karabiner.json"
+  if [ ! -f "$karabiner_config" ]; then
+    step 'Launch Karabiner-Elements once so it creates its config file at'
+    note "$karabiner_config."
+    note 'The next apply builds the rules into it.'
+  fi
+fi
+
+if app_present 'Hammerspoon.app'; then
+  step 'Approve Hammerspoon in System Settings > Privacy & Security:'
+  note 'Accessibility, and Input Monitoring when a hotkey does not fire.'
+fi
+
+# --- settings only a human can finish --------------------------------------
+
+step 'Turn dictation on once by hand: press Control twice, accept the consent'
+note 'dialog, then let the language models for en_US, fr_CH and de_CH download'
+note 'in System Settings > Keyboard > Dictation.'
+
+if ! marked pointer-speed-applied; then
+  step 'Check the tracking speed in System Settings > Trackpad and > Mouse:'
+  note 'the apply wrote it but could not confirm it took.'
+fi
+
+if ! marked auto-brightness-applied; then
+  step 'Turn "Automatically adjust brightness" off in System Settings >'
+  note 'Displays, on every display.'
+fi
+
+# --- the ssh key Azure DevOps has no API for -------------------------------
+
+if marked ssh-key-generated; then
+  step 'Add this ssh key to Azure DevOps by hand, it has no API for keys:'
+  note 'User settings > SSH public keys > New key, and paste'
+  public_key="$(marker_value ssh-key-generated)"
+  if [ -n "$public_key" ] && [ -f "$public_key" ]; then
+    printf '\n'
+    cat "$public_key"
+    printf '\n'
+  else
+    note "Key file missing, find it with: ls $HOME/.ssh/*.pub"
+  fi
+  note 'Once it is pasted, this reminder goes away with:'
+  note "rm $STATE/ssh-key-generated"
+fi
+{{ if not .managed }}
+# --- packages that did not install -----------------------------------------
+
+packages_status="$(marker_value packages-status)"
+if [ -n "$packages_status" ] && [ "$packages_status" != 0 ]; then
+  step "Finish the package install: brew bundle exited $packages_status."
+  # `brew bundle` keeps no log of its run, so what is still missing is worked
+  # out now from the Brewfile it ran with. Nothing here is fetched -- the check
+  # compares the Brewfile against what is installed -- but it pays for a Ruby
+  # start-up and an `mas list`, so it is on the failure path only.
+  #
+  # `brew bundle check` writes its whole report to stderr and leaves stdout
+  # empty, so the streams are merged. sed keeps the entry lines and drops
+  # brew's headline, its footer and any warning that shares that stream. The
+  # suffix is the whole `needs to be ...` family: installed, installed or
+  # updated, tapped, linked, unlinked, started.
+  BREW="${DOTFILES_BREW:-brew}"
+  if has_command "$BREW" && [ -f "$STATE/Brewfile" ]; then
+    "$BREW" bundle check --file "$STATE/Brewfile" --verbose 2>&1 |
+      sed -n 's/^[^A-Za-z]*\(.*\) needs to be [a-z ]*\.$/\1/p' |
+      while IFS= read -r entry; do
+        note "- $entry"
+      done
+  fi
+  note 'A signed-out App Store is the usual cause: open the App Store, sign in,'
+  note 'then run chezmoi apply again.'
+fi
+{{ else }}
+# --- apps the employer has to hand out -------------------------------------
+#
+# Casks and App Store apps are never installed on a managed Mac, so the list to
+# request is the app table minus whatever is in /Applications right now. Rows
+# with no bundle (ngrok is a binary) are left out: there is nothing to look for
+# and nothing a portal of apps could hand over.
+
+missing=''
+want_app() {
+  app_present "$1" && return 0
+  missing="$missing$2
+"
+}
+{{- range .apps }}
+{{- if and (ne .app "") (has .group $groups) }}
+want_app {{ .app | quote }} {{ trimSuffix ".app" .app | quote }}
+{{- end }}
+{{- end }}
+
+if [ -n "$missing" ]; then
+  step 'Request these apps from the Self Service Portal:'
+  printf '%s' "$missing" | while IFS= read -r app; do
+    note "- $app"
+  done
+fi
+{{ end }}
+printf '\n'
+printf 'The apply asks for your admin password more than once by design: the\n'
+printf 'sudo ticket expires during the long steps, and the display module has\n'
+printf 'to read preferences that belong to root.\n'
 exit 0
