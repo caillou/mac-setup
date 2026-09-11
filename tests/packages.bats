@@ -254,28 +254,143 @@ rows() {
 }
 
 # --- the Homebrew installer ------------------------------------------------
+#
+# Nothing here can install Homebrew: curl, sudo, bash and brew are stubs in a
+# directory that replaces PATH, and HOMEBREW_PREFIX points at an empty
+# directory so the guard does not find the Homebrew of the machine running
+# these tests.
 
-@test "the installer asks for sudo once and runs the official script" {
+# installer_stubs  -> the stub directory, with a curl that downloads a real
+# installer; call stub_curl afterwards for the failure cases.
+installer_stubs() {
+  INSTALLER_BIN="$BATS_TEST_TMPDIR/installer-bin"
+  INSTALLER_LOG="$BATS_TEST_TMPDIR/installer.log"
+  INSTALLER_RAN="$BATS_TEST_TMPDIR/ran-installer.sh"
+  mkdir -p "$INSTALLER_BIN"
+
+  printf '#!/bin/sh\necho "sudo $*" >>"%s"\n' "$INSTALLER_LOG" >"$INSTALLER_BIN/sudo"
+
+  # The bash stub keeps a copy of what it was handed, so a test can prove the
+  # script ran the file it downloaded rather than anything else.
+  cat >"$INSTALLER_BIN/bash" <<EOF
+#!/bin/sh
+echo "bash \$*" >>"$INSTALLER_LOG"
+echo "NONINTERACTIVE=\${NONINTERACTIVE:-unset}" >>"$INSTALLER_LOG"
+cat "\$1" >"$INSTALLER_RAN"
+EOF
+  chmod +x "$INSTALLER_BIN/sudo" "$INSTALLER_BIN/bash"
+
+  INSTALLER_BODY='#!/bin/bash
+echo "would install Homebrew"
+'
+  stub_curl 0 "$INSTALLER_BODY"
+}
+
+# stub_curl <exit code> [body]  -> a curl that writes body to its -o target
+stub_curl() {
+  local body="$BATS_TEST_TMPDIR/curl-body"
+  printf '%s' "${2:-}" >"$body"
+  cat >"$INSTALLER_BIN/curl" <<EOF
+#!/bin/sh
+echo "curl \$*" >>"$INSTALLER_LOG"
+target=
+while [ "\$#" -gt 0 ]; do
+  case "\$1" in
+  -o) target="\$2" ;;
+  esac
+  shift
+done
+[ -z "\$target" ] || cat "$body" >"\$target"
+exit ${1:-0}
+EOF
+  chmod +x "$INSTALLER_BIN/curl"
+}
+
+# homebrew  -> runs the rendered installer script against the stubs
+homebrew() {
+  local script="$BATS_TEST_TMPDIR/homebrew.sh"
+  render --file "$HOMEBREW" >"$script"
+  PATH="$INSTALLER_BIN:/usr/bin:/bin" \
+    HOMEBREW_PREFIX="$BATS_TEST_TMPDIR/no-homebrew" \
+    DOTFILES_BASH="$INSTALLER_BIN/bash" \
+    run sh "$script"
+}
+
+# logged sudo  -> did a stub record a call?
+logged() {
+  [ -f "$INSTALLER_LOG" ] && grep -q "^$1" "$INSTALLER_LOG"
+}
+
+@test "the installer downloads to a file and checks it before running it" {
   run render --file "$HOMEBREW"
   [ "$status" -eq 0 ]
-  [[ "$output" == *'sudo -v'* ]]
-  [[ "$output" == *'NONINTERACTIVE=1'* ]]
   [[ "$output" == *'https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh'* ]]
+  # The download lands in a file, and bash is handed that file. Piping curl
+  # into `bash -c` is the defect this guard exists for: it turns a failed
+  # download into a successful run-once that chezmoi never repeats.
+  [[ "$output" == *'-o "$installer"'* ]]
+  [[ "$output" == *'NONINTERACTIVE=1 "${DOTFILES_BASH:-/bin/bash}" "$installer"'* ]]
+  [[ "$output" != *'bash -c'* ]]
+  # And the password comes after the download, not before it.
+  [[ "${output#*curl}" == *'sudo -v'* ]]
 }
 
 @test "the installer does nothing when Homebrew is already there" {
-  # sudo and curl are stubbed as well, so a broken guard cannot install
-  # anything on the machine running the tests.
-  local bin="$BATS_TEST_TMPDIR/installer-bin"
-  mkdir -p "$bin"
-  for command in brew sudo curl; do
-    printf '#!/bin/sh\necho "%s $*" >>"%s"\n' "$command" "$BATS_TEST_TMPDIR/installer.log" >"$bin/$command"
-    chmod +x "$bin/$command"
-  done
+  installer_stubs
+  # brew on PATH is the only difference from the tests below: a broken guard
+  # would reach the stubbed curl and sudo, and the log would show it.
+  printf '#!/bin/sh\necho "brew $*" >>"%s"\n' "$INSTALLER_LOG" >"$INSTALLER_BIN/brew"
+  chmod +x "$INSTALLER_BIN/brew"
 
-  render --file "$HOMEBREW" >"$BATS_TEST_TMPDIR/homebrew.sh"
-  PATH="$bin:$PATH" run sh "$BATS_TEST_TMPDIR/homebrew.sh"
+  homebrew
   [ "$status" -eq 0 ]
   [[ "$output" == *'already installed'* ]]
-  [ ! -f "$BATS_TEST_TMPDIR/installer.log" ]
+  [ ! -f "$INSTALLER_LOG" ]
+}
+
+@test "a downloaded installer is run from the file, once the password is asked" {
+  installer_stubs
+  homebrew
+  [ "$status" -eq 0 ]
+  logged sudo
+  logged bash
+  grep -qxF 'NONINTERACTIVE=1' "$INSTALLER_LOG"
+  # bash ran the downloaded file itself, and the copy is gone afterwards.
+  [ "$(cat "$INSTALLER_RAN")" = "$(printf '%s' "$INSTALLER_BODY")" ]
+  local ran
+  ran="$(sed -n 's/^bash //p' "$INSTALLER_LOG")"
+  [ -n "$ran" ]
+  [ ! -e "$ran" ]
+}
+
+@test "an empty download aborts the apply and costs no password" {
+  installer_stubs
+  stub_curl 0 ''
+  homebrew
+  [ "$status" -ne 0 ]
+  [[ "$output" == *'empty'* ]]
+  ! logged bash
+  ! logged sudo
+}
+
+@test "a failed download aborts the apply and costs no password" {
+  installer_stubs
+  stub_curl 6 ''
+  homebrew
+  [ "$status" -ne 0 ]
+  [[ "$output" == *'could not download the installer'* ]]
+  ! logged bash
+  ! logged sudo
+}
+
+@test "a download that is not a shell script aborts the apply" {
+  installer_stubs
+  # What a captive portal hands back instead of the installer.
+  stub_curl 0 '<html><body>Sign in to continue</body></html>
+'
+  homebrew
+  [ "$status" -ne 0 ]
+  [[ "$output" == *'not a shell script'* ]]
+  ! logged bash
+  ! logged sudo
 }

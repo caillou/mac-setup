@@ -8,20 +8,53 @@ set -eu
 {{ if eq .chezmoi.os "darwin" }}
 # Scripts run in a plain `sh` with whatever environment chezmoi inherited, so
 # an installed Homebrew is not necessarily on PATH.
-if command -v brew >/dev/null 2>&1 || [ -x /opt/homebrew/bin/brew ]; then
+if command -v brew >/dev/null 2>&1 || [ -x "${HOMEBREW_PREFIX:-/opt/homebrew}/bin/brew" ]; then
   echo "homebrew: already installed"
   exit 0
 fi
 
-# Ask for the admin password here rather than in the middle of the install.
+URL="https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh"
+
+# The installer is downloaded to a file and checked before anything runs it.
+# `bash -c "$(curl ...)"` would swallow a failed download: under `set -eu` a
+# failing command substitution inside an argument does not abort the script,
+# and `bash -c ""` exits 0, so chezmoi would record this run-once script as
+# done and never reach the installer again -- a captive portal in the first
+# minute of a bootstrap would leave the Mac without Homebrew for good. Every
+# failure below exits non-zero instead, so chezmoi records nothing and the
+# next `chezmoi apply` retries.
+installer="$(mktemp)"
+trap 'rm -f "$installer"' EXIT
+
+if ! curl -fsSL "$URL" -o "$installer"; then
+  echo "homebrew: could not download the installer from $URL, check the network and re-run the apply"
+  exit 1
+fi
+if [ ! -s "$installer" ]; then
+  echo "homebrew: the downloaded installer is empty, check the network and re-run the apply"
+  exit 1
+fi
+case "$(head -n 1 "$installer")" in
+'#!'*) ;;
+*)
+  echo "homebrew: the download is not a shell script (a captive portal page?), re-run the apply on a real network"
+  exit 1
+  ;;
+esac
+
+# Ask for the admin password here rather than in the middle of the install,
+# and only once the installer is in hand: a failed download costs no password.
 echo "homebrew: installing Homebrew. macOS asks for your admin password."
 sudo -v
 
-# The official installer. NONINTERACTIVE skips its confirmation prompt and
-# makes it install the Command Line Tools headlessly through softwareupdate
-# when they are missing, so no separate wait loop is needed.
-NONINTERACTIVE=1 /bin/bash -c \
-  "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+# NONINTERACTIVE skips the installer's confirmation prompt and makes it install
+# the Command Line Tools headlessly through softwareupdate when they are
+# missing, so no separate wait loop is needed. A failure inside the installer
+# still aborts the apply, as it always did.
+#
+# The interpreter is the seam a test uses to point the run at a stub, so
+# nothing installs Homebrew on the machine running the tests.
+NONINTERACTIVE=1 "${DOTFILES_BASH:-/bin/bash}" "$installer"
 {{- else }}
 echo "homebrew: not macOS, nothing to do"
 {{- end }}
