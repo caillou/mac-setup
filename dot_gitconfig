@@ -1,0 +1,14 @@
+[user]
+	name = Pierre Spring
+	email = pierre.spring@caillou.ch
+[pull]
+	ff = only
+[init]
+	defaultBranch = main
+[core]
+	commentChar = |
+# Last section wins, so the conditional include has to come after the default
+# identity. Git matches the folder by path and never looks at the disk, so the
+# first ICFM clone on a fresh Mac already carries the right address.
+[includeIf "gitdir:~/repos/icfm/"]
+	path = ~/.config/git/icfm.gitconfig

@@ -1,0 +1,6 @@
+# The identity file is home-relative on purpose: the key itself is generated
+# per machine by the GitHub script and never copied between Macs.
+Host *
+  ForwardAgent yes
+  ServerAliveInterval 60
+  IdentityFile ~/.ssh/id_rsa

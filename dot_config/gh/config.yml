@@ -1,0 +1,7 @@
+# gh's settings. Only the alias is worth carrying between Macs; gh falls back
+# to its own default for every key that is missing here.
+#
+# The neighbouring hosts.yml holds the OAuth token and is never managed: this
+# repo is public, and the GitHub script logs each machine in on its own.
+aliases:
+    co: pr checkout

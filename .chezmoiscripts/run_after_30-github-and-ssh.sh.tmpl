@@ -1,5 +1,111 @@
 #!/bin/sh
 # GitHub and ssh: generates the ssh key, logs gh in, uploads the key, switches origin to ssh.
-# Filled in by "02. git, github and ssh".
 {{ template "facts.sh" . }}
+# Every step below is guarded, so a machine that is already set up runs this
+# script in silence.
+#
+# Test seams. The preamble puts the real Homebrew first on PATH, so a stub in
+# front of PATH would never win; naming each command is what lets the tests
+# point them at stubs that talk to nothing.
+GH="${DOTFILES_GH:-gh}"
+GIT="${DOTFILES_GIT:-git}"
+KEYGEN="${DOTFILES_SSH_KEYGEN:-ssh-keygen}"
+
+# The dotfiles checkout, as chezmoi knows it while it renders this script.
+SOURCE="${DOTFILES_SOURCE:-{{ .chezmoi.sourceDir }}}"
+
+SSH_DIR="$HOME/.ssh"
+KEY="$SSH_DIR/id_rsa"
+KNOWN_HOSTS="$SSH_DIR/known_hosts"
+ORIGIN_SSH="git@github.com:caillou/dotfiles.git"
+
+# A private key is any id_* that is not a public half. Keys are per machine and
+# never copied, so any key at all means there is nothing to generate.
+has_private_key() {
+  for candidate in "$SSH_DIR"/id_*; do
+    case "$candidate" in
+    *.pub) continue ;;
+    esac
+    if [ -f "$candidate" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+mkdir -p "$SSH_DIR"
+chmod 700 "$SSH_DIR"
+
+# RSA 4096 because Azure DevOps accepts nothing else and has no API to add a
+# key. The marker tells the report to print the public half for the paste into
+# Azure DevOps, which is the one step that stays manual.
+if ! has_private_key; then
+  "$KEYGEN" -q -t rsa -b 4096 -C "$(hostname)" -N '' -f "$KEY"
+  mark ssh-key-generated "$KEY.pub"
+  printf 'github-and-ssh: generated %s\n' "$KEY"
+fi
+
+if ! has_command "$GH"; then
+  echo "github-and-ssh: gh is not installed, skipping the GitHub steps. Re-run the apply once it is."
+  exit 0
+fi
+
+# `gh auth token` is a local read of the gh config; `gh auth status` asks the
+# API whether the token is still good. Asking locally first is what keeps an
+# offline apply on a settled Mac from opening a browser it cannot use. The
+# price is that a token revoked on github.com no longer triggers a re-login on
+# its own; `gh auth login` by hand fixes that. The token the login hands out by
+# default cannot upload keys, hence the extra scope.
+if ! "$GH" auth token >/dev/null 2>&1 && ! "$GH" auth status >/dev/null 2>&1; then
+  echo "github-and-ssh: logging in to GitHub, a browser window opens."
+  if ! "$GH" auth login --web --hostname github.com --git-protocol ssh --skip-ssh-key --scopes admin:public_key; then
+    echo "github-and-ssh: the GitHub login did not finish. Re-run 'chezmoi apply' to try again."
+    exit 0
+  fi
+fi
+
+# github.com goes into known_hosts so the first push over ssh does not stop on
+# the host authenticity prompt. The keys come from the GitHub API over TLS, not
+# from `ssh-keyscan`: a scan believes whatever answers on the network, and on a
+# fresh Mac on an employer network that answer would become the permanent pin
+# for github.com. When the call does not come back with keys, known_hosts is
+# left alone and ssh asks its one question on the first push instead.
+#
+# The exit status is what says the answer is real: on an HTTP error `gh api`
+# copies the response body to stdout and exits 1, so a revoked token or a rate
+# limit would otherwise pin a line of JSON as github.com's host key. awk is the
+# second guard, keeping only lines that are a key type and a key, so nothing
+# else can reach known_hosts even if the API ever answers something new.
+if ! "$KEYGEN" -F github.com -f "$KNOWN_HOSTS" >/dev/null 2>&1; then
+  if host_keys="$("$GH" api meta --jq '.ssh_keys[]' 2>/dev/null)"; then
+    host_keys="$(printf '%s\n' "$host_keys" |
+      awk 'NF == 2 && $1 ~ /^(ssh-|ecdsa-|sk-)/ { print "github.com " $0 }')"
+    if [ -n "$host_keys" ]; then
+      printf '%s\n' "$host_keys" >>"$KNOWN_HOSTS"
+      printf 'github-and-ssh: added github.com to %s\n' "$KNOWN_HOSTS"
+    fi
+  fi
+fi
+
+# Adding a key GitHub already has exits 0, so this runs on every apply. Its
+# output is swallowed to keep a settled machine silent; a real failure is
+# reported and stops here, because the ssh origin below would be useless
+# without the key on the account.
+if [ -f "$KEY.pub" ]; then
+  if ! upload="$("$GH" ssh-key add "$KEY.pub" --title "$(hostname)" 2>&1)"; then
+    printf 'github-and-ssh: uploading %s to GitHub failed: %s\n' "$KEY.pub" "$upload"
+    exit 0
+  fi
+fi
+
+# The bootstrap clones with chezmoi's built-in git, which speaks HTTPS only, so
+# the checkout cannot push until its origin is the ssh URL. GitHub redirects
+# the old repository name, so the URL below is correct either way.
+origin="$("$GIT" -C "$SOURCE" remote get-url origin 2>/dev/null || true)"
+case "$origin" in
+https://*)
+  "$GIT" -C "$SOURCE" remote set-url origin "$ORIGIN_SSH"
+  printf 'github-and-ssh: switched the dotfiles origin to %s\n' "$ORIGIN_SSH"
+  ;;
+esac
 exit 0

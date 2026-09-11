@@ -3,6 +3,20 @@
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export REPO_ROOT
 
+# Git's own environment, dropped.
+#
+# A commit exports GIT_DIR, GIT_INDEX_FILE and friends into every hook, and
+# they outrank any path an argument names: under `lefthook run pre-commit`,
+# `git init "$BATS_TEST_TMPDIR/repo"` re-initialises the *real* repository
+# instead, and with no work tree in sight it marks that repository bare. Every
+# later `git -C "$fixture" ...` then reads the real checkout too, which is why
+# `remote add origin` answered "remote origin already exists".
+#
+# Sourced from each file's setup(), so this runs before every test: a test
+# talks to the repository it just created, never to the one it runs inside.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX \
+  GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
+
 # chezmoi_config <managed> <personal> <embedded>
 #
 # Writes a throwaway chezmoi config carrying the machine facts, so templates
