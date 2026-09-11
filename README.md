@@ -324,6 +324,11 @@ the UI shows up as repo drift. Quit iTerm2, `git status`, commit the plist like
 any other edit. Those same four keys are excluded from what iTerm2
 writes there, so no machine path or username reaches the committed file.
 
+The same write-back loses an inbound change: run `chezmoi update` from inside
+iTerm2 and the pulled plist survives only until iTerm2 quits, when it saves the
+preferences it still holds in memory over the file. When the other Mac may have
+changed iTerm2 settings, pull from another terminal, or quit iTerm2 first.
+
 ## Managed Macs
 
 `managed` is answered once at init from `profiles status -type enrollment` and
