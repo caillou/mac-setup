@@ -48,7 +48,7 @@ Companion to [prd.md](./prd.md). Everything here was read from the personal Mac 
 ### Keyboard projects
 
 - `~/repos/caillou/karabiner.ts` (github caillou/karabiner.ts): `npm run build` runs `tsx src/index.ts`, which calls `writeToProfile('Default profile', ...)` and writes `~/.config/karabiner/karabiner.json`. Done on this Mac on 2026-09-11: the only profile was renamed from `caillou` to `Default profile` by editing the JSON (Karabiner reloaded it live; backup in `~/.config/karabiner/automatic_backups/`), the source was retargeted and committed, and a rebuild produced identical rules. `writeToProfile` fails if the named profile is missing; Karabiner creates `Default profile` on first launch on a fresh Mac.
-- `~/repos/keyboard` (github caillou/keyboard, to move to `~/repos/caillou/keyboard`): `make install` runs `script/setup` which installs its Brewfile (hammerspoon cask, lefthook, lua, lua@5.4, luarocks, shellcheck, stylua), symlinks `hammerspoon/` to `~/.hammerspoon/keyboard`, writes `require('keyboard')` into `~/.hammerspoon/init.lua`, installs Lua test deps, relaunches Hammerspoon. Idempotent. `~/.hammerspoon/Spoons/EmmyLua.spoon` is runtime-generated; never manage `Spoons`.
+- `~/repos/keyboard` (github caillou/keyboard, to be archived after its three Lua files are vendored into dotfiles): `make install` runs `script/setup` which installs its Brewfile (hammerspoon cask, lefthook, lua, lua@5.4, luarocks, shellcheck, stylua), symlinks `hammerspoon/` to `~/.hammerspoon/keyboard`, writes `require('keyboard')` into `~/.hammerspoon/init.lua`, installs Lua test deps, relaunches Hammerspoon. Idempotent. `~/.hammerspoon/Spoons/EmmyLua.spoon` is runtime-generated; never manage `Spoons`.
 - Karabiner ignores changes when `karabiner.json` is a symlink; the generated JSON stays out of the repo. Hammerspoon config path can be overridden with `defaults write org.hammerspoon.Hammerspoon MJConfigFile` but is not needed.
 
 ### iTerm2
@@ -210,7 +210,7 @@ Side effect of the probe on this Mac: a "Terminal wants to control Finder" Autom
 - Installer `--purge-binary` removes the curl-installed chezmoi after init; Homebrew's `brew "chezmoi"` takes over.
 - Symlinked preferences break on macOS 14+ (cfprefsd rewrites the file), which kills stow/dotbot/mackup for `~/Library/Preferences`. mackup README says so; last release 0.11.2 (2024). https://github.com/lra/mackup
 - nix-darwin: fully declarative but root activation (`system.primaryUser`), Determinate installer needs `nix.enable = false`, messy uninstall. Rejected. https://github.com/nix-darwin/nix-darwin
-- Hammerspoon in chezmoi: dozens of repos vendor small configs as `dot_hammerspoon/`; only one has tests and it dropped busted/luarocks to fit. `git-repo` externals are "limited to running git clone and/or git pull", invisible to `chezmoi diff`, and a bare `git pull` in a dirty checkout aborts apply (twpayne/chezmoi#2495). Decision: separate repo, cloned by a `run_once_` script, installed by its own `make install`. Karabiner: community uses `run_onchange_` scripts hashing the inputs to regenerate `karabiner.json` (e.g. Gai-H/dotfiles).
+- Hammerspoon in chezmoi: dozens of repos vendor small configs as `dot_hammerspoon/`; only one has tests and it dropped busted/luarocks to fit. `git-repo` externals are "limited to running git clone and/or git pull", invisible to `chezmoi diff`, and a bare `git pull` in a dirty checkout aborts apply (twpayne/chezmoi#2495). Decision (revised 2026-09-11): vendor the three active Lua files as plain chezmoi-managed files, no tests or toolchain; archive the keyboard repo. Karabiner: community uses `run_onchange_` scripts hashing the inputs to regenerate `karabiner.json` (e.g. Gai-H/dotfiles).
 - Karabiner docs: config path `~/.config/karabiner/karabiner.json`; a symlinked file breaks change detection; symlink the directory or set `XDG_CONFIG_HOME` instead. https://karabiner-elements.pqrs.org/docs/manual/misc/configuration-file-path/
 - Fisher install: `curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install jorgebucaran/fisher`; commit `~/.config/fish/fish_plugins`; `fisher update` installs exactly that list. https://github.com/jorgebucaran/fisher
 - fish default shell: `command -v fish | sudo tee -a /etc/shells` (guard with grep), `chsh -s "$(command -v fish)"`. Homebrew in fish: `/opt/homebrew/bin/brew shellenv fish | source`.
@@ -226,11 +226,31 @@ Side effect of the probe on this Mac: a "Terminal wants to control Finder" Autom
 - Sandboxed app prefs (Safari, Messages) need Full Disk Access for the terminal; dropped. `com.apple.universalaccess` also needs FDA; dropped.
 - Screenshot keys, Finder NewWindowTarget keys, Dock keys, WindowManager keys all confirmed present and honoured on 26.6.
 
-## 6. Live-test note
+## 6. Review findings folded in (2026-09-11)
+
+A fresh-context reviewer checked the PRD, notes and issues against chezmoi, Homebrew and Hammerspoon docs and this Mac's live config. Facts adopted:
+
+- chezmoi dry-run does not execute scripts; CI dry-run validates templates and file targets only.
+- chezmoi ignores dot-prefixed entries in the source directory (other than its own `.chezmoi*` files), so a `.karabiner/` or `.iterm2/` project directory needs no `.chezmoiignore` rule. Non-dot repo folders (`docs/`, `tests/`) still need ignoring.
+- Scripts without `before_`/`after_` run interleaved with file targets in alphabetical order; giving every non-Homebrew script `after_` removes that dependency.
+- Scripts are separate `sh` processes without the user's shell config: Homebrew's shellenv and the asdf shims must be set up inside each script (via a shared template include in `.chezmoitemplates`). "Export in one script for the next" does nothing.
+- `.chezmoi.sourceDir` records the `--source` path given at init; use it in the config template instead of a literal path so CI works.
+- `chezmoi init --purge-binary` removes the installer-provided binary.
+- The `gh auth login` default token lacks `admin:public_key`; `gh ssh-key add` needs `--scopes admin:public_key` at login (or let the login flow upload the key). The built-in git clones over HTTPS, so the dotfiles origin must be switched to ssh after login for pushes to work.
+- `brew bundle` adopts existing casks by itself; the template guard is what prevents adoption. `HOMEBREW_BUNDLE_MAS_SKIP=1` skips `mas` entries; use it when `mas account` fails, otherwise the bundle aborts the apply on a signed-out personal Mac.
+- The `hs` CLI auto-launches Hammerspoon (with a dialog) when it isn't running unless the no-autolaunch flag is passed; check `pgrep -x Hammerspoon` first.
+- Root's CoreBrightness plist should be changed through `sudo defaults export`/`import`, not by editing the file, or cfprefsd's cache can clobber the change.
+- The dictation hotkey parameter `18446744073709289471` exceeds int64; write it with PlistBuddy.
+- On this Mac `~/.nvmrc` pins node 24.14.0 while asdf's current is 24.15.0; the managed `~/.tool-versions` becomes the only global source and `~/.nvmrc` is removed. Switching from git-clone asdf 0.14 to Homebrew asdf 0.16 needs `asdf reshim`.
+- `chsh` can reject the password on federated (Platform SSO) accounts; fall back to `dscl` for the login shell.
+- In `~/repos/keyboard/hammerspoon`, `windows.lua` requires `keyboard.status-message` (path must change); `status-message.lua` has no project require.
+- Scripts record outcomes as marker files under `~/.local/state/dotfiles/` so the report script can omit done items.
+
+## 7. Live-test note
 
 During pointer research an agent wrote and applied test values for trackpad scaling, mouse scaling and double-click threshold on this Mac, then restored them. Verified afterwards: `com.apple.trackpad.scaling` = 1, mouse keys absent, live `HIDPointerAcceleration` = 45056, as before.
 
-## 7. Open items
+## 8. Open items
 
 - Confirm True Tone and auto-brightness are off on this Mac (sudo read above) before implementing the display module.
 - Sort the package dump into core and groups; propose, then review.

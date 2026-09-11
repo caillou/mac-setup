@@ -25,7 +25,7 @@ At the end it prints the short list of things macOS refuses to let a script do, 
 5. As an employee with a managed Mac, I want the setup to detect MDM enrollment on its own, so that I don't have to remember which mode to run.
 6. As an employee with a managed Mac, I want to override the detected mode explicitly, so that detection getting it wrong doesn't block me.
 7. As an employee with a managed Mac, I want no desktop apps or App Store apps installed by Homebrew there, so that Homebrew never fights the employer's software distribution.
-8. As an employee with a managed Mac, I want a printed list of the allow-listed apps that are missing, so that I can request them from the Self Service Portal.
+8. As an employee with a managed Mac, I want a printed list of the apps from my app list that are missing, so that I can request them from the Self Service Portal.
 9. As a Mac owner, I want a cask skipped when its app already exists in Applications, so that the bootstrap never aborts on a pre-installed app and never adopts one.
 10. As a Mac owner, I want fonts installed on every machine, managed or not, so that my terminal looks the same everywhere.
 11. As a Mac owner, I want one curated package list with optional groups such as personal and embedded, so that the work Mac doesn't receive games and synth toolchains.
@@ -72,11 +72,11 @@ At the end it prints the short list of things macOS refuses to let a script do, 
 ### Tooling and repo
 
 - chezmoi manages the files. Files are copied, never symlinked: macOS 14 and later rewrite symlinked preference files, and Karabiner ignores changes to a symlinked config.
-- Bootstrap follows chezmoi's canonical pattern: the official installer, then `init --apply` with the built-in git enabled. The built-in git is required because a fresh Mac's `/usr/bin/git` is a stub that opens the Command Line Tools dialog and fails; chezmoi's automatic fallback doesn't trigger because the stub counts as present.
+- Bootstrap follows chezmoi's canonical pattern: the official installer, then `init --apply` with the built-in git enabled and the installer's `--purge-binary` flag, so the curl-installed binary is removed once Homebrew's takes over. The built-in git is required because a fresh Mac's `/usr/bin/git` is a stub that opens the Command Line Tools dialog and fails; chezmoi's automatic fallback doesn't trigger because the stub counts as present.
 - The built-in git clones over HTTPS only, so the repo stays public and contains no secrets by construction.
 - The existing GitHub repo `caillou/mac-setup` is renamed to `caillou/dotfiles`. GitHub redirects the old URL.
-- The chezmoi source directory is `~/repos/caillou/dotfiles` on every machine. The bootstrap passes it explicitly; the config template pins it so later commands need no flag. It is the only repo the setup needs: the Hammerspoon config is managed as files and the Karabiner source lives in a project directory inside it. The former `caillou/keyboard` and `caillou/karabiner.ts` repos are archived with a pointer to dotfiles; their history and the keyboard repo's test suite stay there.
-- chezmoi itself is listed in the Brewfile so Homebrew keeps it current; the installer-provided binary is purged after the first apply.
+- The chezmoi source directory is `~/repos/caillou/dotfiles` on every machine. The bootstrap passes it with `--source`; the config template records whatever path was passed (`.chezmoi.sourceDir`), never a literal, so the same template works on the CI runner. It is the only repo the setup needs: the Hammerspoon config is managed as files and the Karabiner source lives in a project directory inside it. The former `caillou/keyboard` and `caillou/karabiner.ts` repos are archived with a pointer to dotfiles; their history and the keyboard repo's test suite stay there.
+- chezmoi itself is listed in the Brewfile so Homebrew keeps it current.
 - Re-sync is plain `chezmoi update`. No alias, no wrapper.
 
 ### Machine facts and configuration data
@@ -84,15 +84,18 @@ At the end it prints the short list of things macOS refuses to let a script do, 
 - The config template detects enrollment with `profiles status -type enrollment` and records a `managed` boolean. The user can override it in the config file.
 - The config template prompts once for group flags, initially `personal` and `embedded`, and records them. Names are finalised when the package list is sorted.
 - The Intune MDM and the ManageEngine self-service agent coexist on the work Mac; detection uses only the generic enrollment command, never a vendor agent.
-- A small shell library provides pure predicates used by several scripts: is managed, is app bundle present in Applications, is command available, is key already at value. It is the only place these checks are written.
+- A small shell library provides pure predicates used by several scripts: is managed, is app bundle present in Applications, is command available, is key already at value, is Hammerspoon running with its CLI available. It lives in chezmoi's templates directory and is inlined into every script with a template include, because scripts are separate processes that cannot source a file that may not be applied yet. The same include sets up the environment every script needs: Homebrew's shellenv and the asdf shims on the path, since scripts run in plain `sh` without the user's shell config.
+- Scripts record outcomes for the final report as marker files in a state directory under `~/.local/state/dotfiles/` (for example: ssh key generated, pointer speed applied, auto-brightness applied). The report reads those markers.
 
 ### Homebrew and packages
 
 - A run-once "before" script guarded to macOS runs `sudo -v` and the official Homebrew installer, which installs the Command Line Tools headlessly when missing. No separate tools wait loop.
-- One templated Brewfile: a core section for every machine, then flag-guarded blocks per group. Casks are emitted only when not managed and only when the app bundle is absent; App Store entries only when not managed; fonts always. Formulae always.
+- One templated Brewfile: a core section for every machine, then flag-guarded blocks per group. Casks are emitted only when not managed, and only when either the app bundle is absent from Applications or Homebrew's own Caskroom entry for that cask exists (so a cask installed by Homebrew stays in the rendered file and `brew bundle cleanup` remains meaningful). App Store entries only when not managed, and skipped entirely when no App Store account is signed in. Fonts always. Formulae always.
+- The cask list is data, not prose: a chezmoi data file with one row per cask giving the cask name, the app bundle name and the group. The Brewfile template and the managed-Mac "missing apps" report both read it.
+- `brew bundle` adopts existing casks on its own, so the template guard above is what keeps story 9 true; a render test protects it. The bundle step's exit status never aborts the apply, so the final report still prints.
 - The initial list is a curated sort of a dump from the current Mac into core and groups, reviewed as a proposal, not entry by entry. Duplicate cask names on the current Mac are dropped.
 - A change-triggered script runs `brew bundle` with the rendered file. Cleanup is never automated; `brew bundle cleanup` is a documented manual check.
-- Homebrew never adopts an existing app. On a managed Mac the script prints the allow-listed casks whose apps are missing.
+- Homebrew never adopts an existing app. On a managed Mac the script prints the casks from the app list whose apps are missing.
 
 ### Shell
 
@@ -100,20 +103,19 @@ At the end it prints the short list of things macOS refuses to let a script do, 
 - The frozen theme file that fish 4.3 generated from the Ayu Dark colours is managed as a plain conf.d file. A new conf.d file holds the settings currently in universal variables that are worth keeping: XDG config home, emoji width, and the Pure prompt options that differ from Pure's defaults. Which Pure options differ is determined by diffing against Pure's defaults during the migration.
 - The universal variables file is not managed. Migration on the current Mac erases the dead entries: BrowserStack, pyenv, Spacefish, the 28 colour variables superseded by the theme file.
 - Plugins are z, Pure and fzf via fisher, declared in the `fish_plugins` file. A change-triggered script installs fisher if absent and runs `fisher update`.
-- fish becomes the login shell: appended to `/etc/shells` if missing, then `chsh`, both guarded.
+- fish becomes the login shell: appended to `/etc/shells` if missing, then `chsh`, both guarded. On an account whose password is federated (Platform SSO) `chsh` can reject the local password; the script then falls back to `sudo dscl . -create /Users/$USER UserShell <fish>`.
 - The zsh login profile, zshrc, bash profile and readline config are managed as today, written with home-relative paths. The asdf line changes to the Homebrew asdf form.
-- Templates are limited to files that truly vary per machine: chezmoi's own config, the Brewfile, the defaults script, the iTerm2 preference keys. Everything else is a plain file so edits made in the home directory can be copied back with `chezmoi re-add`.
+- No dotfile target is a template except chezmoi's own config and the Brewfile; the iTerm2 pointer and the scripts are templates because they need the source path, machine facts or change hashes. Every other file, including the defaults script, is plain and uses `$HOME`, so edits made in the home directory can be copied back with `chezmoi re-add`.
 
 ### Git, GitHub, ssh
 
-- gitconfig: personal identity as default, `pull.ff only`, default branch main, comment char `|`, a conditional include for `~/repos/icfm/` pointing at an ICFM identity file that lives in the repo. The BKW and Apprentice overrides are dropped. The global ignore is managed.
-- gh config with the `co` alias. A run-once script runs the browser login when `gh auth status` fails, then uploads the ssh key.
+- gitconfig: personal identity as default, `pull.ff only`, default branch main, comment char `|`, a conditional include for `~/repos/icfm/` pointing at an ICFM identity file managed at `~/.config/git/icfm.gitconfig`. The BKW and Apprentice overrides are dropped. The global ignore is managed.
+- gh's `config.yml` with the `co` alias is managed; `hosts.yml` holds the token and is never managed. A run-once script runs the browser login when `gh auth status` fails, requesting the key-upload scope, then uploads the ssh key. After login it switches the dotfiles checkout's origin from the HTTPS URL the built-in git cloned to the ssh URL, so pushes from the new Mac work.
 - ssh: one RSA 4096 key generated when the ssh folder has no key, because Azure DevOps accepts RSA only and has no API for adding keys. The public key is uploaded to GitHub via gh and printed for manual paste into Azure DevOps. The ssh client config (agent forwarding, keep-alive, identity file) is a template.
-- The keyboard repos are cloned after this module so they can use ssh.
 
 ### asdf
 
-- Homebrew asdf (0.16 line, Go). Plugins nodejs and python, global versions pinned in the managed tool-versions file, legacy version files enabled. A change-triggered script adds plugins and installs the pinned versions.
+- Homebrew asdf (0.16 line, Go). Plugins nodejs and python, global versions pinned in the managed `~/.tool-versions`, legacy version files enabled. A change-triggered script adds plugins and installs the pinned versions; it never runs `asdf set`, because the versions file is managed and would drift. The stray `~/.nvmrc` in the home folder is removed in the migration so the tool-versions file is the only global source.
 - Migration on the current Mac removes the sourcing of the git-clone install; the data directory with installed versions is kept and reused.
 
 ### Hammerspoon
@@ -121,19 +123,19 @@ At the end it prints the short list of things macOS refuses to let a script do, 
 - `~/.hammerspoon` is managed directly by chezmoi as plain files: `init.lua`, `windows.lua` (the Ctrl+S window-layout modal), `status-message.lua` (on-screen overlay), and `setup.lua` (machine-setup helpers, below). No symlink, no installer, no Lua toolchain, no tests: the keyboard repo's space-fn engine, spec suite, Makefile, luarocks tree, lefthook, stylua and EmmyLua stubs are not carried over and remain in the archived repo.
 - `init.lua` is trimmed to: install the `hs` command line into `~/.local`, reload hotkey, a single change watcher on the config folder, `require` of the windows module, ready alert. The symlink-following watcher and the EmmyLua spoon are dropped. The two lines in the windows module that pause and resume space-fn are removed.
 - `~/.hammerspoon/Spoons` is never managed; Hammerspoon writes there at runtime.
-- `setup.lua` exposes functions callable from a script through the `hs` command line once Hammerspoon runs and has Accessibility: set the wallpaper on every screen through Hammerspoon's desktop-image API (no System Events, so no Automation prompt), and print the machine-setup status overlay. It is loaded on demand, not at startup. Further helpers (pointer-speed pane, dictation activation) are candidates, not commitments.
+- `setup.lua` exposes functions callable from a script through the `hs` command line once Hammerspoon runs and has Accessibility. The shell side checks that Hammerspoon is running and calls `hs` with its no-autolaunch flag, so a machine without Hammerspoon never gets a launch dialog. On a fresh Mac Hammerspoon has not run during the first apply, so the fallbacks are the path taken at bootstrap; the helpers matter on re-syncs. Functions: set the wallpaper on every screen through Hammerspoon's desktop-image API (no System Events, so no Automation prompt), and print the machine-setup status overlay. It is loaded on demand, not at startup. Further helpers (pointer-speed pane, dictation activation) are candidates, not commitments.
 - The wallpaper step in the defaults script calls this helper when Hammerspoon is running, and falls back to System Events otherwise.
 
 ### Karabiner
 
-- The karabiner.ts source (one TypeScript file, package file, lockfile) lives in a project directory inside the dotfiles repo, excluded from the home directory by `.chezmoiignore`. A change-triggered script, hashed on the source, runs the install and build after asdf has provided node; the build writes the rules into Karabiner's own config file, preserving Karabiner's other settings. The generated JSON is never in the repo because Karabiner rewrites it.
+- The karabiner.ts source (one TypeScript file, package file, lockfile, a `.gitignore` for `node_modules`) lives in a dot-prefixed project directory inside the dotfiles repo, which chezmoi ignores without any rule. A change-triggered script, hashed on the source and lockfile, puts the asdf shims on the path, runs `npm ci` and the build; the build writes the rules into Karabiner's own config file, preserving Karabiner's other settings. The generated JSON is never in the repo because Karabiner rewrites it.
 - The build targets Karabiner's "Default profile", which Karabiner creates on first launch, so no profile has to be created by hand. Karabiner still needs to have been launched once; the manual checklist says so.
 - Dependencies are pinned in the lockfile rather than tracking `latest`. Tooling choice (karabiner.ts versus alternatives) is confirmed by the research recorded in the notes.
 - The step is guarded on the Karabiner app being present.
 
 ### macOS defaults
 
-One change-triggered script, plain POSIX sh, that quits System Settings first, writes everything, runs the private `activateSettings -u` as the logged-in user so input settings apply without logout, then restarts Finder, Dock and SystemUIServer. Values are the current Mac's:
+One change-triggered script, plain POSIX sh using `$HOME` (no template variables), that quits System Settings first, writes everything, runs the private `activateSettings -u` as the logged-in user so input settings apply without logout, then restarts Finder, Dock and SystemUIServer. Nested values that `defaults` cannot express (the dictation hotkey, whose parameter exceeds a signed 64-bit integer) are written with PlistBuddy. Values are the current Mac's:
 
 - Keyboard: standard function keys on; Fn key alone does nothing; key repeat 2, initial repeat 15; press-and-hold off; full keyboard access; automatic capitalisation, smart dashes, period substitution and smart quotes off.
 - Scrolling: natural scrolling off; swipe between pages off.
@@ -153,23 +155,23 @@ One change-triggered script, plain POSIX sh, that quits System Settings first, w
 
 ### Downloads view writer
 
-- A small Python module, run with a throwaway virtualenv and the `ds_store` library, writes the Downloads record into the home folder's `.DS_Store`: view style list, and a list-view blob with sort column Date Added descending, Date Added visible. It runs after `killall Finder` (closing all windows, so Finder's cache can't overwrite it) and is followed by a second `killall Finder`. Verified working on macOS 26.6 on both Macs.
-- The record shape, from the prototype, is the decision: three entries on the `Downloads` key of the parent folder's store, `vstl` of type `type` with value `Nlsv`, `vSrn` of type `long` with value 1, and `lsvC` of type `blob` holding a binary plist with `sortColumn` `dateAdded`, `viewOptionsVersion` 1, and a `columns` list where each column has `identifier`, `visible`, `ascending`, `width`. The blob bytes are those captured from the current Mac.
+- A small Python module, run through `uv run --with ds_store` (uv is a core formula), ensures the Downloads record in the home folder's `.DS_Store` has view style list and a list-view blob with sort column Date Added descending and Date Added visible. It merges into an existing record, falls back to the captured blob when none exists, and writes nothing when already correct. It runs after `killall Finder` (closing all windows, so Finder's cache can't overwrite it) and is followed by a second Finder restart, both tolerant of Finder not running. Verified working on macOS 26.6 on both Macs.
+- The record shape, from the prototype, is the decision: three entries on the `Downloads` key of the parent folder's store, `vstl` of type `type` with value `Nlsv`, `vSrn` of type `long` with value 1, and `lsvC` of type `blob` holding a binary plist with `sortColumn` `dateAdded`, `viewOptionsVersion` 1, and a `columns` list where each column has `identifier`, `visible`, `ascending`, `width`. Finder 26 reads `lsvC`; the legacy `lsvp` record is never written.
 - AppleScript cannot do this: Finder's scripting dictionary has no Date Added column.
 
 ### iTerm2
 
-- A preferences folder in the repo. Two iTerm2 keys point iTerm2 at it and enable saving changes back on quit. Migration exports the current preferences into that folder. The old Ayu Dark colour file is kept there as reference.
+- A dot-prefixed preferences folder inside the chezmoi source directory, so iTerm2 writes straight into the repo and chezmoi ignores it as a target. A small templated script sets iTerm2's custom-folder keys to that path (from the source directory variable) and enables saving changes back on quit. Migration exports the current preferences into that folder. The old Ayu Dark colour file is kept there as reference.
 
 ### Display settings
 
-- Auto-brightness is stored in root's CoreBrightness preferences as one `AutoBrightnessEnable` flag per display entry (confirmed on the personal Mac, where it is false). A sudo script sets the flag to false on every display entry, restarts the brightness daemon, reads back, and prints the manual instruction if the value didn't hold. Display identifiers differ per machine, so the script iterates the entries rather than hardcoding one.
+- Auto-brightness is stored in root's CoreBrightness preferences as one `AutoBrightnessEnable` flag per display entry (confirmed on the personal Mac, where it is false). A sudo script goes through `defaults export` and `defaults import` on that domain, never editing the plist file directly, so the preferences daemon's cache can't clobber it: set the flag to false on every display entry, import, restart the brightness daemon, read back, and print the manual instruction if the value didn't hold. Display identifiers differ per machine, so the script iterates the entries rather than hardcoding one. Reading needs sudo too, so one prompt per run is accepted; the result is recorded as a marker for the report.
 - True Tone has no key in that file on the personal Mac, meaning it was never toggled and sits at Apple's default, on. The setup leaves it alone.
 - The script never fails the apply.
 
 ### Manual-steps report
 
-- The last script prints a checklist: admin password prompts explained; Privacy & Security approvals for Karabiner and Hammerspoon (Input Monitoring, Accessibility, driver extension); Azure DevOps ssh key paste; App Store sign-in on personal Macs; Self Service requests on managed Macs; first dictation activation; pointer speed and auto-brightness to verify; Karabiner first launch.
+- A script with the `after` attribute that runs on every apply and prints a checklist: admin password prompts explained; Privacy & Security approvals for Karabiner and Hammerspoon (Input Monitoring, Accessibility, driver extension); Azure DevOps ssh key paste; App Store sign-in on personal Macs; Self Service requests on managed Macs; first dictation activation; pointer speed and auto-brightness to verify; Karabiner first launch.
 
 ### README
 
@@ -188,11 +190,11 @@ The README is the operating manual and is written together with the repo. Sectio
 
 ### Migration of the current Mac
 
-- One issue: rename the GitHub repo; move the local checkout to `~/repos/caillou/dotfiles`; copy the three Hammerspoon files and the Karabiner source into the repo; archive `caillou/keyboard` and `caillou/karabiner.ts` on GitHub with a README pointer and remove their local checkouts; replace the `~/.hammerspoon/keyboard` symlink with the managed files; adopt the current dotfiles into chezmoi; purge dead universal variables; switch asdf; export iTerm2 prefs; run the first apply and review the diff.
+- One issue: rename the GitHub repo; move the local checkout to `~/repos/caillou/dotfiles`; copy the three Hammerspoon files and the Karabiner source into the repo; archive `caillou/keyboard` and `caillou/karabiner.ts` on GitHub with a README pointer and remove their local checkouts; replace the `~/.hammerspoon/keyboard` symlink with the managed files; export iTerm2 prefs into the repo; purge dead universal variables; remove `~/.nvmrc`; switch asdf and run `asdf reshim`; then `chezmoi diff`, review, `chezmoi apply`. The repo files written by the earlier issues are the source of truth; nothing is adopted from the home directory, which would overwrite them with the stale versions.
 
 ### Ordering and idempotency
 
-- Scripts are numbered so the order is: Homebrew, packages, shell, git and ssh, asdf, Karabiner build, defaults, Dock, Downloads view, iTerm2, display, report. Hammerspoon files are applied with the other dotfiles and need no script. Every script is re-runnable. Change-triggered scripts embed hashes of the files they depend on.
+- Scripts carry explicit attributes: the Homebrew installer is the only `before` script; every other script is `after`, so all dotfiles are in place before scripts run and no reasoning about chezmoi's alphabetical interleaving of scripts and files is needed. Within `after`, two-digit prefixes fix the order: 10 packages, 20 fish plugins, 21 login shell, 30 GitHub and ssh, 40 asdf, 50 Karabiner build, 60 defaults, 61 Dock, 62 Downloads view, 63 iTerm2, 64 display, 90 report. The exact filenames are fixed in the skeleton issue. Hammerspoon files are applied with the other dotfiles and need no script.
 
 ## Testing Decisions
 
@@ -201,7 +203,7 @@ A good test checks observable behaviour through the module's interface and never
 - The Downloads view writer gets Python unit tests against a temporary `.DS_Store`: writes the record, reads it back, asserts the three entries and the decoded sort column. This makes the earlier manual check permanent.
 - The machine facts library gets bats tests with stubbed `profiles`, `ls` and `command`, covering managed and unmanaged, app present and absent, key set and unset.
 - The Brewfile and the defaults script get template render tests: chezmoi renders them with fake data for the four combinations of managed and personal, and the tests assert which casks and blocks appear. No installing.
-- Every shell script passes shellcheck. A GitHub Actions job on a macOS runner installs chezmoi, initialises from the checkout with fake config data, and runs a dry-run apply, catching template errors and script ordering mistakes on a fresh machine.
+- Every shell script passes shellcheck. A GitHub Actions job on a macOS runner installs chezmoi, initialises from the checkout with fake config data, and runs a dry-run apply. Dry-run validates templates and file targets only; chezmoi does not execute scripts in dry-run. Script ordering is therefore asserted by a bats test over the script filenames and attributes, and script content by rendering each script with `chezmoi execute-template` and checking the expected commands.
 - Prior art: the archived keyboard repo's busted suite and lefthook config are the model for "tests plus pre-commit lint" in a personal repo. The Lua files themselves are not unit-tested in dotfiles; the window-layout modal is verified by use.
 - Not tested automatically: the effect of defaults writes, the Homebrew install, and the Dock rebuild. Those are verified by hand on the new Mac after the first bootstrap, and the pointer-speed persistence across a reboot is checked then.
 
@@ -209,7 +211,7 @@ A good test checks observable behaviour through the module's interface and never
 
 - Claude Code configuration, skills, agents and memory. Memory folders are named after absolute project paths that include the username, so they cannot sync between these two Macs. Claude config gets its own, probably private, repo later.
 - VS Code, which already uses Settings Sync.
-- Syncing project repositories. Only the two keyboard projects are cloned.
+- Syncing project repositories.
 - Secrets management. The repo holds none; ssh keys are per machine; Bitwarden is personal-Mac only and not wired in.
 - Installing desktop apps on the managed Mac, and anything MDM policy forbids.
 - Granting privacy permissions; macOS never lets a script do this.
@@ -221,6 +223,7 @@ A good test checks observable behaviour through the module's interface and never
 
 ## Further Notes
 
+- The fully fresh path, a Mac with no Command Line Tools at all, is not exercised before the first real bootstrap: the new Mac already has the tools. The Homebrew installer's headless tools install is documented behaviour, not something we verified.
 - The old defaults script from 2023 is the seed for the defaults module; most of its keys are still valid on macOS 26.6 and were confirmed against the current Mac.
 - A live test during research briefly changed and then restored the trackpad, mouse and double-click keys on the current Mac; the final state was verified identical to the original.
 - The pointer speed keys were reported broken on macOS 26.1 because System Settings stopped writing them. Writing them still takes effect when followed by `activateSettings -u`, verified on 26.6.2, but whether the settings slider reflects the value and whether it survives a reboot is unverified.
