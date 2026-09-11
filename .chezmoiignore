@@ -1,8 +1,8 @@
 # Repo-only content that must never become a file in the home directory.
 #
-# Dot-prefixed source entries (.github, .editorconfig, and the .karabiner,
-# .iterm2 and .downloads-view project folders added by later issues) are
-# ignored by chezmoi already, so only the rest needs a rule here.
+# Dot-prefixed source entries (.github, .editorconfig, the .iterm2 preferences
+# folder, and the .karabiner and .downloads-view project folders added by later
+# issues) are ignored by chezmoi already, so only the rest needs a rule here.
 
 README.md
 lefthook.yml
@@ -13,6 +13,5 @@ docs/**
 tests
 tests/**
 
-# Kept until the README issue replaces them; not dotfiles either way.
+# Kept until the README issue replaces it; not a dotfile either way.
 macos
-ayu dark.itermcolors
