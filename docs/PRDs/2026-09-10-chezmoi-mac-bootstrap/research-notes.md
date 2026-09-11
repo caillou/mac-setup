@@ -256,3 +256,18 @@ During pointer research an agent wrote and applied test values for trackpad scal
 - Sort the package dump into core and groups; propose, then review.
 - Decide whether the self-patched Blex Nerd Font files are replaced by the `font-blex-mono-nerd-font` cask.
 - Test on the new Mac after first bootstrap: pointer speed persists across reboot; dictation shortcut works after consent; Dock allow-list; wallpaper.
+
+## 9. Package classification (reviewed with the user, 2026-09-11)
+
+Source of truth for the Brewfile and the cask table. Four buckets: core (every Mac), personal and embedded (flags), drop (not in the Brewfile). Casks and App Store apps install on unmanaged Macs only; on the managed Mac the core casks and App Store apps become the "request via Self Service" list.
+
+- **Core, formulae:** fish, git, gh, chezmoi, asdf, dockutil, mas, fzf, ripgrep, fd, jq, tree, wget, htop, jesseduffield/lazygit/lazygit, glow, shellcheck, uv, make, mkcert, mtr, rename, exiftool, imagemagick, graphicsmagick, ffmpeg, yt-dlp, worktrunk, lefthook, azure-cli, qrencode, smartmontools, mactop.
+- **Core, fonts (all Macs, managed included):** font-ibm-plex-mono, font-ibm-plex-sans, font-anonymice-nerd-font (iTerm2's non-ASCII font for prompt glyphs; the installed file is Nerd Fonts v2 "Anonymice Nerd Font Complete Mono", the cask is v3 with a different family name, so the iTerm2 profile's non-ASCII font is updated in the migration). Blex Nerd Font is unused and dropped.
+- **Core, casks:** iterm2, visual-studio-code, google-chrome, firefox, hammerspoon, karabiner-elements, alfred, istat-menus, homerow, the-unarchiver, docker-desktop, obsidian, slack, microsoft-teams, ngrok, vlc, handbrake.
+- **Core, App Store:** Amphetamine 937984704, Keynote 409183694, Numbers 409203825, Pages 409201541, Microsoft Outlook 985367838, Windows App 1295203466, Azure VPN Client 1553936137, Tailscale 1475387142, Harvest 506189836, Monodraw 920404675, GIPHY CAPTURE 668208984.
+- **Personal, formulae:** figlet, lolcat, viu, slides, nethack, sox, lilypond, fontforge, gbevin/tools/sendmidi, go.
+- **Personal, casks:** nextcloud, signal, telegram, threema, discord, spotify, steam, obs, balenaetcher, geekbench, google-chrome@canary, vcv-rack, vivaldi, microsoft-edge.
+- **Personal, App Store:** Bitwarden 1352778147, Day One 1055511498, Draw Things 6444050820, GarageBand 682658836, iMovie 408981434, Ivory 6444602274, LG Screen Manager 1142051783, WhatsApp 310633997, Xcode 497799835, Blackmagic Disk Speed Test 425264550, Stray 6451498949, LuminoCity 950290785.
+- **Embedded:** platformio, open-ocd, dfu-util, cask gcc-arm-embedded.
+- **Drop (not in the Brewfile; uninstall on this Mac when convenient):** bat, bat-extras, hyfetch, brightness, fatsort, cocoapods, python@3.10, python@3.12 (asdf provides python), lua@5.4, luarocks, stylua (archived keyboard toolchain), pipx (uv), git-gui, openfortivpn, allure, stress-ng, xpdf, gnutls, nss, unbound, gobject-introspection, shared-mime-info, libraw, libdvdcss; casks babeledit, docker (duplicate), google-chrome-canary (duplicate), handbrake-app (duplicate), font-blex-mono-nerd-font; App Store iMazing Converter, Firewatch.
+- Taps kept: jesseduffield/lazygit (core), gbevin/tools (personal).
