@@ -191,6 +191,15 @@ Improvement adopted for the writer: instead of overwriting with the captured blo
 
 Side effect of the probe on this Mac: a "Terminal wants to control Finder" Automation prompt may be pending, and a Finder window may have been opened. Nothing under `~` was modified.
 
+### Karabiner config generators (researched 2026-09-11)
+
+- **karabiner.ts is maintained and still the best fit.** npm 1.38.0 published 2026-06-13, 1.37.0 (2026-05) added Karabiner-Elements 15.x and 16 features; 0 open issues; listed on Karabiner's own external-generators page. Covers every primitive this config uses (`ifApp`, variables, `to_if_alone`, layers) plus KE 16 additions. Caution: single maintainer, releases months apart, CI publishing switched off in June 2026, so a breaking KE change may wait for a contributor PR. https://github.com/evan-liu/karabiner.ts , https://karabiner-elements.pqrs.org/docs/json/external-json-generators/
+- Alternatives: GokuRakuJoudo (Clojure/EDN) slowing, last release 2025-02, behind KE 15.6+/16, 72 open issues. mxstbr/karabiner is a hand-rolled TS generator, not a library. karaml (Python/YAML) stale since 2024. Ruby/Perl DSLs dead. nix-darwin only installs Karabiner, no rules module. Karabiner-Elements 16.x itself (16.3.0, 2026-09-06) can evaluate JavaScript to JSON via `karabiner_cli --eval-js-to-json`, but only for rule snippets, no types or layers, and no official tool writes a profile. kanata (Rust, very active) replaces Karabiner rather than configuring it: runs as root, tied to a DriverKit protocol version, and has no built-in frontmost-app condition, so the Remote Desktop layer would need a separately maintained agent. Rejected.
+- **The starter-repo setup is still the documented way** (README "Using Node.js", `tsx src/index.ts`); `npx create-karabiner-config@latest` now scaffolds the same plus a `dev` script `tsx watch src/index.ts`. Deno is officially supported; Bun works but is undocumented.
+- Modernisation adopted: pin `"karabiner.ts": "^1.38.0"` and commit the lockfile (with `latest`, a chezmoi change-trigger hash is meaningless); add `"dev": "tsx watch src/index.ts"`; prettier bump optional.
+- `writeToProfile()` still fails when the named profile is missing (`Profile <name> not found`) and never creates one. Writing to `'Default profile'` works because Karabiner creates that profile on first launch (ab-dauletkhan/dotfiles does exactly this). `karabiner_cli --select-profile 'Default profile'` selects it; the CLI lives at `/Library/Application Support/org.pqrs/Karabiner-Elements/bin/karabiner_cli`.
+- chezmoi repos embedding karabiner.ts: ryo246912/dotfiles (project dir under `dot_config/karabiner-ts`, mise tasks, Bun, pinned), ab-dauletkhan/dotfiles (Deno, pinned 1.36.0, Default profile), MuXiu1997/dotfiles (Deno, generates a JSON that chezmoi applies as a file; manual step). Gai-H/dotfiles uses the `run_onchange_` hash trigger pattern but with jq, not karabiner.ts.
+
 ## 5. Research conclusions (with sources)
 
 ### Tooling
