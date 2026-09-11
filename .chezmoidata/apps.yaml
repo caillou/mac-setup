@@ -1,0 +1,88 @@
+# Desktop apps: one row per Homebrew cask and per App Store app.
+#
+# Casks and App Store apps are not in the Brewfile template. They are data
+# because two scripts read them: run_after_10-packages appends the rows this
+# machine should install to the rendered Brewfile, and run_after_90-report
+# turns them into the "request via Self Service" list on a managed Mac.
+#
+# Fields:
+#   kind   cask (Homebrew) or mas (App Store)
+#   name   the Homebrew cask name, or the App Store id
+#   app    the bundle in /Applications, empty when the package installs none
+#          (ngrok is a binary). The packages script checks this to keep
+#          `brew bundle` from adopting an app that was installed by hand.
+#   group  core (every Mac), personal or embedded (behind the config flags)
+#
+# The list is the classification reviewed with the user, recorded in
+# docs/PRDs/2026-09-10-chezmoi-mac-bootstrap/research-notes.md section 9, in
+# that order. Fonts are casks too but live in the Brewfile: they install on
+# every Mac, managed included.
+#
+# Homebrew renamed the `handbrake` cask to `handbrake-app`; the new name is
+# used here so the Caskroom check below finds the directory Homebrew creates.
+
+apps:
+  # Core casks.
+  - { kind: cask, name: "iterm2", app: "iTerm.app", group: core }
+  - { kind: cask, name: "visual-studio-code", app: "Visual Studio Code.app", group: core }
+  - { kind: cask, name: "google-chrome", app: "Google Chrome.app", group: core }
+  - { kind: cask, name: "firefox", app: "Firefox.app", group: core }
+  - { kind: cask, name: "hammerspoon", app: "Hammerspoon.app", group: core }
+  - { kind: cask, name: "karabiner-elements", app: "Karabiner-Elements.app", group: core }
+  - { kind: cask, name: "alfred", app: "Alfred 5.app", group: core }
+  - { kind: cask, name: "istat-menus", app: "iStat Menus.app", group: core }
+  - { kind: cask, name: "homerow", app: "Homerow.app", group: core }
+  - { kind: cask, name: "the-unarchiver", app: "The Unarchiver.app", group: core }
+  - { kind: cask, name: "docker-desktop", app: "Docker.app", group: core }
+  - { kind: cask, name: "obsidian", app: "Obsidian.app", group: core }
+  - { kind: cask, name: "slack", app: "Slack.app", group: core }
+  - { kind: cask, name: "microsoft-teams", app: "Microsoft Teams.app", group: core }
+  - { kind: cask, name: "ngrok", app: "", group: core }
+  - { kind: cask, name: "vlc", app: "VLC.app", group: core }
+  - { kind: cask, name: "handbrake-app", app: "HandBrake.app", group: core }
+
+  # Core App Store apps.
+  - { kind: mas, name: "937984704", app: "Amphetamine.app", group: core }
+  - { kind: mas, name: "409183694", app: "Keynote.app", group: core }
+  - { kind: mas, name: "409203825", app: "Numbers.app", group: core }
+  - { kind: mas, name: "409201541", app: "Pages.app", group: core }
+  - { kind: mas, name: "985367838", app: "Microsoft Outlook.app", group: core }
+  - { kind: mas, name: "1295203466", app: "Windows App.app", group: core }
+  - { kind: mas, name: "1553936137", app: "Azure VPN Client.app", group: core }
+  - { kind: mas, name: "1475387142", app: "Tailscale.app", group: core }
+  - { kind: mas, name: "506189836", app: "Harvest.app", group: core }
+  - { kind: mas, name: "920404675", app: "Monodraw.app", group: core }
+  - { kind: mas, name: "668208984", app: "GIPHY CAPTURE.app", group: core }
+
+  # Personal casks.
+  - { kind: cask, name: "nextcloud", app: "Nextcloud.app", group: personal }
+  - { kind: cask, name: "signal", app: "Signal.app", group: personal }
+  - { kind: cask, name: "telegram", app: "Telegram.app", group: personal }
+  - { kind: cask, name: "threema", app: "Threema.app", group: personal }
+  - { kind: cask, name: "discord", app: "Discord.app", group: personal }
+  - { kind: cask, name: "spotify", app: "Spotify.app", group: personal }
+  - { kind: cask, name: "steam", app: "Steam.app", group: personal }
+  - { kind: cask, name: "obs", app: "OBS.app", group: personal }
+  - { kind: cask, name: "balenaetcher", app: "balenaEtcher.app", group: personal }
+  - { kind: cask, name: "geekbench", app: "Geekbench 6.app", group: personal }
+  - { kind: cask, name: "google-chrome@canary", app: "Google Chrome Canary.app", group: personal }
+  - { kind: cask, name: "vcv-rack", app: "VCV Rack 2 Free.app", group: personal }
+  - { kind: cask, name: "vivaldi", app: "Vivaldi.app", group: personal }
+  - { kind: cask, name: "microsoft-edge", app: "Microsoft Edge.app", group: personal }
+
+  # Personal App Store apps.
+  - { kind: mas, name: "1352778147", app: "Bitwarden.app", group: personal }
+  - { kind: mas, name: "1055511498", app: "Day One.app", group: personal }
+  - { kind: mas, name: "6444050820", app: "Draw Things.app", group: personal }
+  - { kind: mas, name: "682658836", app: "GarageBand.app", group: personal }
+  - { kind: mas, name: "408981434", app: "iMovie.app", group: personal }
+  - { kind: mas, name: "6444602274", app: "Ivory.app", group: personal }
+  - { kind: mas, name: "1142051783", app: "LG Screen Manager.app", group: personal }
+  - { kind: mas, name: "310633997", app: "WhatsApp.app", group: personal }
+  - { kind: mas, name: "497799835", app: "Xcode.app", group: personal }
+  - { kind: mas, name: "425264550", app: "Blackmagic Disk Speed Test.app", group: personal }
+  - { kind: mas, name: "6451498949", app: "Stray.app", group: personal }
+  - { kind: mas, name: "950290785", app: "LuminoCity.app", group: personal }
+
+  # Embedded. The ARM toolchain is a pkg that lands in a folder, not a bundle.
+  - { kind: cask, name: "gcc-arm-embedded", app: "ArmGNUToolchain", group: embedded }

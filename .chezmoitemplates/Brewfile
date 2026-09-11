@@ -1,0 +1,76 @@
+# Brewfile: the packages `brew bundle` installs on this machine.
+#
+# This is a template. run_after_10-packages renders it, appends the cask and
+# App Store lines that belong on this machine from .chezmoidata/apps.yaml, and
+# runs `brew bundle` on the result, which it leaves in the state directory.
+# Edit this file, not the generated copy, then `chezmoi apply`.
+#
+# Formulae and fonts install on every Mac, a managed one included. Desktop
+# casks and App Store apps are data, not template lines, because the script
+# has to skip the ones that are already in /Applications without Homebrew.
+#
+# The list is the classification in
+# docs/PRDs/2026-09-10-chezmoi-mac-bootstrap/research-notes.md section 9.
+
+tap "jesseduffield/lazygit"
+
+# Core: every Mac.
+brew "fish"
+brew "git"
+brew "gh"
+brew "chezmoi"
+brew "asdf"
+brew "dockutil"
+brew "mas"
+brew "fzf"
+brew "ripgrep"
+brew "fd"
+brew "jq"
+brew "tree"
+brew "wget"
+brew "htop"
+brew "jesseduffield/lazygit/lazygit"
+brew "glow"
+brew "shellcheck"
+brew "uv"
+brew "make"
+brew "mkcert"
+brew "mtr"
+brew "rename"
+brew "exiftool"
+brew "imagemagick"
+brew "graphicsmagick"
+brew "ffmpeg"
+brew "yt-dlp"
+brew "worktrunk"
+brew "lefthook"
+brew "azure-cli"
+brew "qrencode"
+brew "smartmontools"
+brew "mactop"
+
+# Fonts: every Mac, a managed one included. IBM Plex is the editor and
+# terminal face; the Anonymice Nerd Font supplies iTerm2's non-ASCII glyphs.
+cask "font-ibm-plex-mono"
+cask "font-ibm-plex-sans"
+cask "font-anonymice-nerd-font"
+{{ if .personal }}
+# Personal.
+tap "gbevin/tools"
+brew "figlet"
+brew "lolcat"
+brew "viu"
+brew "slides"
+brew "nethack"
+brew "sox"
+brew "lilypond"
+brew "fontforge"
+brew "gbevin/tools/sendmidi"
+brew "go"
+{{ end -}}
+{{ if .embedded }}
+# Embedded.
+brew "platformio"
+brew "open-ocd"
+brew "dfu-util"
+{{ end -}}

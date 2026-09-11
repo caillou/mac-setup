@@ -1,9 +1,27 @@
 #!/bin/sh
 # Homebrew: installs Homebrew, which brings the Command Line Tools with it.
-# Filled in by "02. homebrew installer and brewfile".
 #
 # This is the only `before` script and the only script without the shared
 # preamble: chezmoi keys run-once scripts by their rendered content, so an
 # edit to facts.sh must never re-run the installer.
 set -eu
-exit 0
+{{ if eq .chezmoi.os "darwin" }}
+# Scripts run in a plain `sh` with whatever environment chezmoi inherited, so
+# an installed Homebrew is not necessarily on PATH.
+if command -v brew >/dev/null 2>&1 || [ -x /opt/homebrew/bin/brew ]; then
+  echo "homebrew: already installed"
+  exit 0
+fi
+
+# Ask for the admin password here rather than in the middle of the install.
+echo "homebrew: installing Homebrew. macOS asks for your admin password."
+sudo -v
+
+# The official installer. NONINTERACTIVE skips its confirmation prompt and
+# makes it install the Command Line Tools headlessly through softwareupdate
+# when they are missing, so no separate wait loop is needed.
+NONINTERACTIVE=1 /bin/bash -c \
+  "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+{{- else }}
+echo "homebrew: not macOS, nothing to do"
+{{- end }}

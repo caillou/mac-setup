@@ -1,5 +1,75 @@
 #!/bin/sh
 # Packages: renders the Brewfile, appends casks and App Store apps from the table, runs brew bundle.
-# Filled in by "02. homebrew installer and brewfile".
 {{ template "facts.sh" . }}
+{{- $groups := list "core" }}
+{{- if .personal }}{{ $groups = append $groups "personal" }}{{ end }}
+{{- if .embedded }}{{ $groups = append $groups "embedded" }}{{ end }}
+# The generated Brewfile stays at a stable path: it is exactly what `brew
+# bundle` ran with, so `brew bundle cleanup --file "$BREWFILE"` is a meaningful
+# drift check afterwards. Edit .chezmoitemplates/Brewfile, never this copy.
+BREWFILE="$STATE/Brewfile"
+
+# The preamble puts the real Homebrew first on PATH, so this is the seam a test
+# uses to point the script at a stub that installs nothing.
+BREW="${DOTFILES_BREW:-brew}"
+
+cat >"$BREWFILE" <<'EOF_BREWFILE'
+{{ template "Brewfile" . -}}
+EOF_BREWFILE
+{{ if not .managed }}
+# Casks and App Store apps come from .chezmoidata/apps.yaml. They are appended
+# here rather than rendered into the template so the check below runs against
+# this machine's Applications folder.
+#
+# A cask is listed when its app bundle is absent, so there is nothing to adopt,
+# or when Homebrew installed it (a Caskroom entry exists), so it keeps being
+# upgraded and `brew bundle cleanup` still accounts for it. An app that arrived
+# by hand is left out: `brew bundle` would otherwise adopt and overwrite it.
+CASKROOM="${DOTFILES_CASKROOM:-${HOMEBREW_PREFIX:-/opt/homebrew}/Caskroom}"
+
+add_cask() {
+  if [ -n "$2" ] && app_present "$2" && [ ! -d "$CASKROOM/$1" ]; then
+    printf 'packages: leaving %s alone, it is installed without Homebrew\n' "$2"
+    return 0
+  fi
+  printf 'cask "%s"\n' "$1" >>"$BREWFILE"
+}
+
+printf '\n' >>"$BREWFILE"
+{{- range .apps }}
+{{- if and (eq .kind "cask") (has .group $groups) }}
+add_cask {{ .name | quote }} {{ .app | quote }}
+{{- end }}
+{{- end }}
+
+cat >>"$BREWFILE" <<'EOF_MAS'
+{{- range .apps }}
+{{- if and (eq .kind "mas") (has .group $groups) }}
+mas "{{ trimSuffix ".app" .app }}", id: {{ .name }}
+{{- end }}
+{{- end }}
+EOF_MAS
+{{ end }}
+if ! has_command "$BREW"; then
+  echo "packages: Homebrew is not installed, skipping. Re-run the apply once it is."
+  exit 0
+fi
+
+hash="$(shasum -a 256 "$BREWFILE" | cut -d ' ' -f 1)"
+if hash_unchanged packages "$hash" && [ "$(marker_value packages-status)" = 0 ]; then
+  echo "packages: nothing changed since the last successful run"
+  exit 0
+fi
+
+# brew bundle carries on past a failing entry and reports at the end. A
+# signed-out App Store or a flaky download must not abort the apply, so the
+# exit code is recorded for the final report instead of propagated.
+status=0
+"$BREW" bundle --file "$BREWFILE" || status=$?
+store_hash packages "$hash"
+mark packages-status "$status"
+
+if [ "$status" -ne 0 ]; then
+  echo "packages: brew bundle exited $status, see the checklist at the end of this apply"
+fi
 exit 0
