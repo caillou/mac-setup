@@ -1,1 +1,4 @@
 docs/PRDs/*/reviews/
+
+# Bytecode left behind by the Downloads view module and its tests.
+__pycache__/

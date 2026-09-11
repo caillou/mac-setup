@@ -1,12 +1,14 @@
 # Activate with: lefthook install
 #
-# The same three checks the GitHub Actions job runs.
+# The same checks the GitHub Actions job runs.
 
 pre-commit:
   parallel: true
   commands:
     bats:
       run: bats tests
+    python:
+      run: uv run --with ds_store python3 -m unittest discover -s tests
     shellcheck:
       run: tests/shellcheck-scripts.sh
     secrets:

@@ -1,5 +1,33 @@
 #!/bin/sh
 # Downloads view: writes the Date Added list view record into ~/.DS_Store. Pure writer.
-# Filled in by "02. downloads view writer".
 {{ template "facts.sh" . }}
-exit 0
+# All the work is in the module; this script only restarts Finder around it.
+# A running Finder holds the store in memory and writes its own copy back, so
+# the record has to be written while Finder is down, and Finder has to be
+# started again to read it. Both restarts tolerate Finder not running.
+#
+# The hash of the module is in this script's rendered text, so chezmoi re-runs
+# it whenever the module changes and never otherwise.
+#
+# module sha256: {{ include ".downloads-view/ensure_downloads_view.py" | sha256sum }}
+MODULE="{{ .chezmoi.sourceDir }}/.downloads-view/ensure_downloads_view.py"
+
+# The preamble puts the real Homebrew first on PATH, so these are the seams a
+# test uses to point the script at stubs instead of the real uv and the real
+# Finder.
+UV="${DOTFILES_UV:-uv}"
+KILLALL="${DOTFILES_KILLALL:-killall}"
+
+# uv comes from the packages script, which has usually run by now. When it has
+# not, this script is change-triggered and would not be retried on its own, so
+# say how to force it.
+if ! has_command "$UV"; then
+  echo "downloads view: uv is not installed yet, skipping. Once it is, run"
+  echo "  chezmoi state delete-bucket --bucket=scriptState && chezmoi apply"
+  exit 0
+fi
+
+"$KILLALL" Finder || true
+sleep 1
+"$UV" run --with ds_store python3 "$MODULE" "$HOME/.DS_Store"
+"$KILLALL" Finder || true
