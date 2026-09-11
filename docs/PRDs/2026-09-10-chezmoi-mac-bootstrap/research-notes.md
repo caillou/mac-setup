@@ -237,14 +237,28 @@ A fresh-context reviewer checked the PRD, notes and issues against chezmoi, Home
 - `.chezmoi.sourceDir` records the `--source` path given at init; use it in the config template instead of a literal path so CI works.
 - `chezmoi init --purge-binary` removes the installer-provided binary.
 - The `gh auth login` default token lacks `admin:public_key`; `gh ssh-key add` needs `--scopes admin:public_key` at login (or let the login flow upload the key). The built-in git clones over HTTPS, so the dotfiles origin must be switched to ssh after login for pushes to work.
-- `brew bundle` adopts existing casks by itself; the template guard is what prevents adoption. `HOMEBREW_BUNDLE_MAS_SKIP=1` skips `mas` entries; use it when `mas account` fails, otherwise the bundle aborts the apply on a signed-out personal Mac.
-- The `hs` CLI auto-launches Hammerspoon (with a dialog) when it isn't running unless the no-autolaunch flag is passed; check `pgrep -x Hammerspoon` first.
+- `brew bundle` adopts existing casks by itself (verified in `cask.rb`); the presence filter is what prevents adoption. CORRECTED by the second review: `mas account` no longer exists (mas 7 prints an error) and `HOMEBREW_BUNDLE_MAS_SKIP` takes a list of names, not `1`; there is no App Store pre-check. `brew bundle` continues past failing entries and exits non-zero at the end; record that status, never abort the apply on it.
+- CORRECTED by the second review: `hs -A` *enables* auto-launch; without it the CLI prompts with a dialog when Hammerspoon isn't running. Only a `pgrep -x Hammerspoon` gate avoids the dialog. Moot now: the Hammerspoon setup helpers were dropped.
 - Root's CoreBrightness plist should be changed through `sudo defaults export`/`import`, not by editing the file, or cfprefsd's cache can clobber the change.
-- The dictation hotkey parameter `18446744073709289471` exceeds int64; write it with PlistBuddy.
+- The dictation hotkey parameter `18446744073709289471` exceeds int64 (-262145 as int64). Write it via `defaults export com.apple.symbolichotkeys -`, edit, `defaults import com.apple.symbolichotkeys -`, not PlistBuddy on the file, which bypasses cfprefsd.
 - On this Mac `~/.nvmrc` pins node 24.14.0 while asdf's current is 24.15.0; the managed `~/.tool-versions` becomes the only global source and `~/.nvmrc` is removed. Switching from git-clone asdf 0.14 to Homebrew asdf 0.16 needs `asdf reshim`.
 - `chsh` can reject the password on federated (Platform SSO) accounts; fall back to `dscl` for the login shell.
 - In `~/repos/keyboard/hammerspoon`, `windows.lua` requires `keyboard.status-message` (path must change); `status-message.lua` has no project require.
 - Scripts record outcomes as marker files under `~/.local/state/dotfiles/` so the report script can omit done items.
+
+### Second review (2026-09-11), verified in a sandboxed chezmoi 2.72.1 run
+
+- chezmoi records a `run_onchange_`/`run_once_` script's hash only when it exits 0 and aborts the whole apply when it exits non-zero. A state-dependent script that exits 0 after skipping is therefore never retried until its inputs change. Decision: only pure writers (defaults, Dock, Downloads view) use `run_onchange_`; every other script is `run_after_` with its own hash and outcome kept under `~/.local/state/dotfiles/`.
+- `run_once_` is keyed by rendered content: editing an included template re-runs it. The Homebrew script therefore excludes the shared preamble and guards on `command -v brew`.
+- `promptBoolOnce map key prompt default` exists; stored answers survive re-init; `--promptBool` is keyed by prompt text; `--promptDefaults` needs every prompt to carry a default. `.chezmoi.sourceDir` is set in the config template at init. `{{ template }}` includes from `.chezmoitemplates` work inside `.chezmoiscripts`. `run_once_before_` runs before file targets; `after_` after. Dot-prefixed source entries are unmanaged. `{{ include "path" | sha256sum }}` is source-dir-relative. `chezmoi re-add` round-trips plain files. `chezmoi apply --dry-run` needs a config, so both CI and the migration must `chezmoi init --source ...` first. chezmoi replaces a symlink target with a directory on its own.
+- `gh ssh-key add` is idempotent (exit 0 when the key exists) and needs `read:public_key`, covered by `admin:public_key`. `--web --hostname github.com` avoids two prompts. `--git-protocol` is stored per host in `hosts.yml`, so the managed `config.yml` stays clean.
+- Karabiner's "Default profile" is an unlocalised literal in `core_configuration.hpp`; the CLI path is right. On a fresh Mac Karabiner writes its config file only after first launch: gate the build on that file.
+- iTerm2: `NoSyncNeverRemindPrefsChangesLostForFile_selection = 2` is ignored unless `NoSyncNeverRemindPrefsChangesLostForFile = true` is also set. The custom-folder and NoSync keys are excluded from the exported plist, so no username leaks into the repo.
+- The wallpaper store's `Provider` is readable without any permission, so the defaults script skips the System Events call when a colour choice is already set; the Automation prompt then appears once per fresh Mac.
+- `sudo -H defaults export com.apple.CoreBrightness -` addresses root's domain; whether `corebrightnessd` honours an imported flag is unverifiable until run on the new Mac; the read-back fallback stays. Restart the daemon only when something changed.
+- sudo's five-minute ticket expires during `brew bundle` and `asdf install`; expect password prompts again at the login-shell, pmset and display steps.
+- Homebrew's asdf is 0.20.x (same Go lineage as 0.16). `fish_plugins` already exists on this Mac with the three plugins; the `fishfile` is a leftover. Pure's `_pure_set_default` calls live in `conf.d/pure.fish` (73 of them).
+- Microsoft now recommends RSA 3072 for Azure DevOps; RSA 4096 is accepted.
 
 ## 7. Live-test note
 
