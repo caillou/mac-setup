@@ -278,6 +278,7 @@ EOF
   writes_all <<EOF
 defaults write com.apple.finder NewWindowTarget -string PfLo
 defaults write com.apple.finder NewWindowTargetPath -string file://$HOME/Downloads/
+defaults write com.apple.finder FXPreferredViewStyle -string clmv
 defaults write NSGlobalDomain AppleShowAllExtensions -bool true
 defaults write com.apple.finder ShowStatusBar -bool true
 defaults write com.apple.finder _FXSortFoldersFirst -bool true
@@ -325,6 +326,11 @@ defaults write com.apple.WindowManager EnableStandardClickToShowDesktop -bool fa
 defaults write com.apple.WindowManager StandardHideDesktopIcons -bool true
 defaults write com.apple.WindowManager HideDesktop -bool true
 defaults write com.apple.WindowManager StandardHideWidgets -bool true
+defaults write com.apple.WindowManager StageManagerHideWidgets -bool false
+defaults write com.apple.WindowManager AutoHide -bool false
+defaults write com.apple.WindowManager EnableTiledWindowMargins -bool false
+defaults write com.apple.WindowManager EnableTilingOptionAccelerator -bool false
+defaults write com.apple.WindowManager AppWindowGroupingBehavior -int 1
 EOF
 }
 
@@ -369,7 +375,7 @@ EOF
 
 @test "what the notes mark informational or dropped is never written" {
   apply
-  run grep -E 'AppleBluetoothMultitouch.mouse|doubleClickThreshold|LSQuarantine|com.apple.Safari|universalaccess|messageshelper|AppleInterfaceStyle|AppleShowScrollBars|FXPreferredViewStyle|AppleLocale' "$LOG"
+  run grep -E 'AppleBluetoothMultitouch.mouse|doubleClickThreshold|LSQuarantine|com.apple.Safari|universalaccess|messageshelper|AppleInterfaceStyle|AppleShowScrollBars|AppleLocale' "$LOG"
   [ "$status" -ne 0 ]
 }
 

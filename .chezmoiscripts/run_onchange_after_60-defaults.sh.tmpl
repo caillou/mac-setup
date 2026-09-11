@@ -113,6 +113,10 @@ defaults write com.apple.screencapture show-thumbnail -bool false
 
 defaults write com.apple.finder NewWindowTarget -string PfLo
 defaults write com.apple.finder NewWindowTargetPath -string "file://$HOME/Downloads/"
+# Column view everywhere. Downloads keeps its list view through the .DS_Store
+# the 62-downloads-view script records; that is per-folder and wins over this
+# default, so the two do not fight.
+defaults write com.apple.finder FXPreferredViewStyle -string clmv
 defaults write NSGlobalDomain AppleShowAllExtensions -bool true
 defaults write com.apple.finder ShowStatusBar -bool true
 defaults write com.apple.finder _FXSortFoldersFirst -bool true
@@ -148,6 +152,13 @@ defaults write com.apple.WindowManager EnableStandardClickToShowDesktop -bool fa
 defaults write com.apple.WindowManager StandardHideDesktopIcons -bool true
 defaults write com.apple.WindowManager HideDesktop -bool true
 defaults write com.apple.WindowManager StandardHideWidgets -bool true
+# AppWindowGroupingBehavior is an integer in this domain; the other four are
+# booleans, as read off this Mac.
+defaults write com.apple.WindowManager StageManagerHideWidgets -bool false
+defaults write com.apple.WindowManager AutoHide -bool false
+defaults write com.apple.WindowManager EnableTiledWindowMargins -bool false
+defaults write com.apple.WindowManager EnableTilingOptionAccelerator -bool false
+defaults write com.apple.WindowManager AppWindowGroupingBehavior -int 1
 
 # --- Dock ------------------------------------------------------------------
 
