@@ -1,5 +1,119 @@
 #!/bin/sh
 # Display: turns auto-brightness off on every display.
-# Filled in by "02. display settings".
 {{ template "facts.sh" . }}
+# Auto-brightness is one AutoBrightnessEnable flag per display entry under
+# DisplayPreferences in root's CoreBrightness preferences. The identifiers are
+# display UUIDs and differ per machine, so the flag is set on every entry
+# instead of on a known display. True Tone has no key in this domain and is
+# left at its default.
+#
+# The domain belongs to root and cannot be read without sudo, so this costs one
+# password prompt per apply. Export, edit, import is the only safe route in:
+# writing the file directly lets cfprefsd's cache clobber the change. Nothing
+# here may fail the apply, so every dead end exits 0 after saying what is left
+# to do by hand.
+
+DOMAIN=com.apple.CoreBrightness
+
+# The preamble puts asdf's shims and Homebrew first on PATH. This is a system
+# script editing root's preferences, so it uses the system interpreter rather
+# than whichever python3 the user's toolchain happens to point at. plistlib is
+# in the standard library.
+PYTHON=/usr/bin/python3
+
+# give_up <reason>
+#
+# The report script reads the marker, so a run that could not finish clears it
+# rather than leaving an older success standing.
+give_up() {
+  printf 'display: %s.\n' "$1"
+  echo 'display: turn auto-brightness off by hand in System Settings > Displays.'
+  rm -f "$STATE/auto-brightness-applied"
+  exit 0
+}
+
+# turn_off <plist in> <plist out>
+#
+#   0   every display entry already has the flag off; nothing was written
+#   10  wrote <plist out> with the flag off on every display entry
+#   *   nothing to edit: an unreadable plist, no display entries, or no
+#       python3. All one dead end for the caller.
+turn_off() {
+  "$PYTHON" - "$1" "$2" <<'EOF_PYTHON'
+import plistlib
+import sys
+
+source, destination = sys.argv[1], sys.argv[2]
+with open(source, "rb") as handle:
+    preferences = plistlib.load(handle)
+
+displays = preferences.get("DisplayPreferences")
+if not isinstance(displays, dict) or not displays:
+    sys.exit(3)
+
+changed = False
+for entry in displays.values():
+    if not isinstance(entry, dict) or entry.get("AutoBrightnessEnable") is False:
+        continue
+    entry["AutoBrightnessEnable"] = False
+    changed = True
+
+if not changed:
+    sys.exit(0)
+
+with open(destination, "wb") as handle:
+    plistlib.dump(preferences, handle)
+sys.exit(10)
+EOF_PYTHON
+}
+
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+
+echo 'display: checking auto-brightness, reading root preferences needs your admin password'
+# The redirects around sudo below are deliberate: only the domain needs root,
+# while the files are this user's own temporary directory, so the shell is the
+# right process to open them.
+# shellcheck disable=SC2024
+if ! sudo -H defaults export "$DOMAIN" - >"$work/current.plist"; then
+  give_up "could not read $DOMAIN"
+fi
+
+state=0
+turn_off "$work/current.plist" "$work/wanted.plist" || state=$?
+case "$state" in
+0)
+  echo 'display: auto-brightness is already off on every display'
+  mark auto-brightness-applied
+  exit 0
+  ;;
+10) ;;
+*)
+  give_up "found no display entries in $DOMAIN"
+  ;;
+esac
+
+# shellcheck disable=SC2024
+if ! sudo -H defaults import "$DOMAIN" - <"$work/wanted.plist"; then
+  give_up "could not write $DOMAIN"
+fi
+
+# The daemon holds the old value in memory and is restarted by launchd.
+sudo killall corebrightnessd 2>/dev/null || true
+
+# Whether corebrightnessd honours an imported flag is only answerable on the
+# machine itself, so the result is read back rather than assumed.
+state=0
+# shellcheck disable=SC2024
+if sudo -H defaults export "$DOMAIN" - >"$work/written.plist"; then
+  turn_off "$work/written.plist" "$work/again.plist" || state=$?
+else
+  state=1
+fi
+if [ "$state" -ne 0 ]; then
+  give_up 'auto-brightness did not stay off'
+fi
+
+echo 'display: auto-brightness is now off on every display'
+mark auto-brightness-applied
 exit 0
