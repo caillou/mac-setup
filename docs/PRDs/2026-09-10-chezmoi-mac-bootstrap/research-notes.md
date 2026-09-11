@@ -47,7 +47,7 @@ Companion to [prd.md](./prd.md). Everything here was read from the personal Mac 
 
 ### Keyboard projects
 
-- `~/repos/caillou/karabiner.ts` (github caillou/karabiner.ts): `npm run build` runs `tsx src/index.ts`, which calls `writeToProfile('caillou', ...)` and writes `~/.config/karabiner/karabiner.json`. Profile `caillou` must exist in Karabiner first.
+- `~/repos/caillou/karabiner.ts` (github caillou/karabiner.ts): `npm run build` runs `tsx src/index.ts`, which calls `writeToProfile('Default profile', ...)` and writes `~/.config/karabiner/karabiner.json`. Done on this Mac on 2026-09-11: the only profile was renamed from `caillou` to `Default profile` by editing the JSON (Karabiner reloaded it live; backup in `~/.config/karabiner/automatic_backups/`), the source was retargeted and committed, and a rebuild produced identical rules. `writeToProfile` fails if the named profile is missing; Karabiner creates `Default profile` on first launch on a fresh Mac.
 - `~/repos/keyboard` (github caillou/keyboard, to move to `~/repos/caillou/keyboard`): `make install` runs `script/setup` which installs its Brewfile (hammerspoon cask, lefthook, lua, lua@5.4, luarocks, shellcheck, stylua), symlinks `hammerspoon/` to `~/.hammerspoon/keyboard`, writes `require('keyboard')` into `~/.hammerspoon/init.lua`, installs Lua test deps, relaunches Hammerspoon. Idempotent. `~/.hammerspoon/Spoons/EmmyLua.spoon` is runtime-generated; never manage `Spoons`.
 - Karabiner ignores changes when `karabiner.json` is a symlink; the generated JSON stays out of the repo. Hammerspoon config path can be overridden with `defaults write org.hammerspoon.Hammerspoon MJConfigFile` but is not needed.
 
