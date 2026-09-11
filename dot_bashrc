@@ -1,0 +1,10 @@
+# Read by interactive non-login bash shells.
+
+# asdf 0.16 and later (the Go rewrite Homebrew ships) has no script to source:
+# the shims directory on PATH is the whole shell integration.
+export PATH="$HOME/.asdf/shims:$PATH"
+
+# Added by Docker Desktop; absent on a Mac that has never run it.
+[ -f "$HOME/.docker/init-bash.sh" ] && source "$HOME/.docker/init-bash.sh"
+
+if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init bash)"; fi

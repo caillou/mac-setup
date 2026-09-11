@@ -1,0 +1,3 @@
+# Read by bash login shells. bash is not a shell anyone works in here; it only
+# has to be able to run Docker's helpers.
+[ -f "$HOME/.docker/init-bash.sh" ] && source "$HOME/.docker/init-bash.sh"

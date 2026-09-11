@@ -1,5 +1,48 @@
 #!/bin/sh
 # Login shell: registers fish in /etc/shells and makes it the login shell.
-# Filled in by "02. shell".
 {{ template "facts.sh" . }}
+# Same seams as the fish-plugins script: a test points these at stubs so it
+# never touches the real /etc/shells or the real login record.
+FISH="${DOTFILES_FISH:-${HOMEBREW_PREFIX:-/opt/homebrew}/bin/fish}"
+SHELLS="${DOTFILES_SHELLS:-/etc/shells}"
+
+if [ ! -x "$FISH" ]; then
+  echo "login-shell: fish is not installed, skipping. Re-run the apply once it is."
+  exit 0
+fi
+
+USER_NAME="$(id -un)"
+
+# The directory record is what macOS logs in with. $SHELL only says what
+# started this apply, which on a re-run is already fish for the wrong reason.
+login_shell() {
+  dscl . -read "/Users/$USER_NAME" UserShell 2>/dev/null | sed -n 's/^UserShell: //p'
+}
+
+if [ "$(login_shell)" = "$FISH" ]; then
+  exit 0
+fi
+
+if ! grep -q -x -F "$FISH" "$SHELLS" 2>/dev/null; then
+  echo "login-shell: adding $FISH to $SHELLS (sudo password needed)"
+  if ! printf '%s\n' "$FISH" | sudo tee -a "$SHELLS" >/dev/null; then
+    echo "login-shell: could not write $SHELLS, add $FISH to it by hand" >&2
+    exit 0
+  fi
+fi
+
+echo "login-shell: making $FISH the login shell (password needed)"
+if chsh -s "$FISH"; then
+  exit 0
+fi
+
+# chsh checks a local password. An account whose password is federated
+# (Platform SSO) has none, so it rejects every answer; writing the record
+# through sudo is the way in.
+echo "login-shell: chsh was rejected, writing the login record directly (sudo password needed)" >&2
+if sudo dscl . -create "/Users/$USER_NAME" UserShell "$FISH"; then
+  exit 0
+fi
+
+echo "login-shell: could not change the login shell, run 'chsh -s $FISH' by hand" >&2
 exit 0

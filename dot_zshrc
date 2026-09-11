@@ -1,0 +1,3 @@
+# Interactive-only config. Environment lives in ~/.zprofile (read by login shells,
+# including Claude Code's tool shell).
+[[ -o login ]] || source ~/.zprofile

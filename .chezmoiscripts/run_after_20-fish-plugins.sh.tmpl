@@ -1,5 +1,45 @@
 #!/bin/sh
 # Fish plugins: installs fisher when absent and runs fisher update.
-# Filled in by "02. shell".
 {{ template "facts.sh" . }}
+# The preamble puts the real Homebrew first on PATH, so this is the seam a test
+# uses to point the script at a stub that installs nothing.
+FISH="${DOTFILES_FISH:-${HOMEBREW_PREFIX:-/opt/homebrew}/bin/fish}"
+
+if [ ! -x "$FISH" ]; then
+  echo "fish-plugins: fish is not installed, skipping. Re-run the apply once it is."
+  exit 0
+fi
+
+# `include` is source-directory-relative, so this hash follows the managed
+# fish_plugins and nothing else. The script runs on every apply and decides
+# for itself, because a change-triggered script that skipped would be recorded
+# as done and never retried.
+PLUGINS_HASH='{{ include "dot_config/private_fish/fish_plugins" | sha256sum }}'
+
+fisher_installed() {
+  "$FISH" --command 'functions --query fisher'
+}
+
+if hash_unchanged fish-plugins "$PLUGINS_HASH" && fisher_installed; then
+  echo "fish-plugins: nothing changed since the last successful run"
+  exit 0
+fi
+
+if ! fisher_installed; then
+  echo "fish-plugins: installing fisher"
+  if ! "$FISH" --command 'curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install jorgebucaran/fisher'; then
+    echo "fish-plugins: could not install fisher, the next apply will try again" >&2
+    exit 0
+  fi
+fi
+
+# `fisher update` reconciles the installed plugins with fish_plugins: it
+# installs what is missing, updates the rest and removes what the file no
+# longer lists. fisher is in that file for the same reason, so reconciling
+# never uninstalls fisher itself.
+if "$FISH" --command 'fisher update'; then
+  store_hash fish-plugins "$PLUGINS_HASH"
+else
+  echo "fish-plugins: fisher update failed, the next apply will try again" >&2
+fi
 exit 0

@@ -1,0 +1,21 @@
+# Read by login shells, including Claude Code's non-interactive Bash tool shell.
+# Mirrors the non-interactive parts of ~/.config/fish/config.fish.
+
+eval "$(/opt/homebrew/bin/brew shellenv)"
+
+export LC_ALL=en_US.UTF-8
+export LC_CTYPE=en_US.UTF-8
+export LANG=en_US.UTF-8
+export XDG_CONFIG_HOME="$HOME/.config"
+
+export PATH="./node_modules/.bin:$PATH:$HOME/.local/bin"
+
+# asdf 0.16 and later (the Go rewrite Homebrew ships) has no script to source:
+# the shims directory on PATH is the whole shell integration. It has to come
+# after PATH is set so the shims win.
+export PATH="$HOME/.asdf/shims:$PATH"
+
+# Added by Docker Desktop; absent on a Mac that has never run it.
+[ -f "$HOME/.docker/init-zsh.sh" ] && source "$HOME/.docker/init-zsh.sh"
+
+if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init zsh)"; fi
