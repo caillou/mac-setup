@@ -1,5 +1,72 @@
 #!/bin/sh
 # Dock: rebuilds the Dock from the allow-list with dockutil. Pure writer.
-# Filled in by "02. dock allow-list".
 {{ template "facts.sh" . }}
-exit 0
+# The allow-list is .chezmoidata/dock.yaml and is rendered into this script
+# below, so chezmoi re-runs the script exactly when the list changes. The hash
+# says so in one greppable line:
+#
+# allow-list: {{ .dock.apps | join "," | sha256sum }}
+#
+# Dock appearance (tile size, autohide, hot corners) is written by the defaults
+# script. This one only decides which tiles the Dock holds.
+
+# dockutil is a core Brewfile formula, installed by the packages script earlier
+# in the same apply. The preamble puts Homebrew first on PATH, so this is the
+# seam a test uses to point the script at a stub that writes nothing.
+DOCKUTIL="${DOTFILES_DOCKUTIL:-dockutil}"
+
+# Apple's own apps live on the sealed system volume; everything else is in
+# APPLICATIONS, from the preamble. Both are variables for the same reason: a
+# test points them at directories it filled in itself.
+SYSTEM_APPLICATIONS="${DOTFILES_SYSTEM_APPLICATIONS:-/System/Applications}"
+
+if ! has_command "$DOCKUTIL"; then
+  echo "dock: dockutil is not installed, skipping. The Dock is rebuilt on the next change to the allow-list."
+  exit 0
+fi
+
+# dock_path /Applications/Firefox.app -> the bundle path to hand dockutil.
+# On a real Mac it returns its argument unchanged.
+dock_path() {
+  case "$1" in
+  /System/Applications/*) printf '%s/%s' "$SYSTEM_APPLICATIONS" "${1#/System/Applications/}" ;;
+  /Applications/*) printf '%s/%s' "$APPLICATIONS" "${1#/Applications/}" ;;
+  *) printf '%s' "$1" ;;
+  esac
+}
+
+# add_app /System/Applications/Calculator.app
+#
+# An app that is not installed is left out instead of becoming a broken tile:
+# on a managed Mac the App Store apps arrive later through Self Service, and on
+# a personal Mac a cask may not have landed yet.
+add_app() {
+  bundle="$(dock_path "$1")"
+  if [ ! -d "$bundle" ]; then
+    printf 'dock: %s is not installed, leaving it out of the Dock\n' "${1##*/}"
+    return 0
+  fi
+  "$DOCKUTIL" --add "$bundle" --section apps --no-restart
+}
+
+# `all` empties every section, so what follows builds the Dock from nothing:
+# Apple's default tiles are gone, including its own Downloads stack, and a
+# re-run cannot leave a second copy of an entry behind. Every call defers the
+# restart so the Dock comes back once, at the end.
+"$DOCKUTIL" --remove all --no-restart
+{{ range .dock.apps }}
+add_app {{ . | quote }}
+{{- end }}
+
+# The Downloads stack: the one entry in the others section, shown as a stack in
+# fan view, sorted by date added.
+if [ -d "$HOME/Downloads" ]; then
+  "$DOCKUTIL" --add "$HOME/Downloads" --section others --display stack --view fan --sort dateadded --no-restart
+else
+  echo "dock: there is no ~/Downloads, leaving the stack out"
+fi
+
+# A Dock that is not running is not a failure: this script also runs where
+# nothing has started it yet.
+killall Dock >/dev/null 2>&1 || true
+echo "dock: rebuilt from the allow-list"

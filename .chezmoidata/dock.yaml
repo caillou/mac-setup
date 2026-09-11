@@ -1,0 +1,20 @@
+# The Dock allow-list: the apps the Dock holds after an apply, in this order.
+#
+# Adding an app is one line here. The list is rendered into
+# .chezmoiscripts/run_onchange_after_61-dock.sh.tmpl, and chezmoi keys a
+# change-triggered script by its rendered content, so editing this file is what
+# rebuilds the Dock; nothing else does.
+#
+# Values are the real bundle paths: Apple's own apps live on the sealed system
+# volume under /System/Applications, everything else under /Applications. An
+# app that is not installed is left out of the Dock, not an error.
+#
+# The Downloads stack is not here. It is the one entry in the others section
+# and carries its own view settings, so the script states it directly. Dock
+# appearance (size, autohide, hot corners) belongs to the defaults script.
+
+dock:
+  apps:
+    - /System/Applications/Freeform.app
+    - /System/Applications/iPhone Mirroring.app
+    - /Applications/Numbers.app
