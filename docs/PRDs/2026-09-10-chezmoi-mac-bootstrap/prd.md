@@ -12,7 +12,7 @@ Every new machine, and every "why is this different here", costs an afternoon.
 
 One public git repo, `caillou/dotfiles`, managed by chezmoi, that turns a fresh Mac into my Mac with one command, and re-syncs any Mac with one command.
 
-The first command installs chezmoi, clones the repo, installs Homebrew (which brings the Command Line Tools), and applies everything: packages, shell, git, asdf, keyboard projects, macOS defaults, Dock, wallpaper, iTerm2. It asks once whether the machine is personal and which optional package groups it should get, detects on its own whether the machine is managed, and remembers the answers. On a managed Mac it installs only command-line tools and fonts, and prints which desktop apps are missing so I can request them from the employer's portal.
+The first command installs chezmoi, clones the repo, installs Homebrew (which brings the Command Line Tools), and applies everything: packages, shell, git, asdf, Hammerspoon and Karabiner configs, macOS defaults, Dock, wallpaper, iTerm2. It asks once whether the machine is personal and which optional package groups it should get, detects on its own whether the machine is managed, and remembers the answers. On a managed Mac it installs only command-line tools and fonts, and prints which desktop apps are missing so I can request them from the employer's portal.
 
 At the end it prints the short list of things macOS refuses to let a script do, so I click through those once and I'm done. Re-syncing later is `chezmoi update`.
 
@@ -42,8 +42,8 @@ At the end it prints the short list of things macOS refuses to let a script do, 
 22. As an ssh user, I want my ssh client config with agent forwarding and keep-alive, so that remote sessions behave as they do today.
 23. As a developer, I want asdf installed from Homebrew with my plugins and global tool versions, so that node and python are present at the versions I use.
 24. As a developer, I want the old git-clone asdf on my current Mac retired without losing installed versions, so that migration costs nothing.
-25. As a keyboard nerd, I want the karabiner.ts and keyboard repos cloned under my repos folder and built or installed by their own tooling, so that Karabiner and Hammerspoon are configured without duplicating those projects.
-26. As a keyboard nerd, I want the keyboard steps skipped when Karabiner or Hammerspoon aren't installed, so that a managed Mac without them doesn't fail the sync.
+25. As a keyboard nerd, I want my Hammerspoon config managed as plain files and my Karabiner rules generated from source inside the same repo, so that keyboard behaviour is versioned with everything else and edited the same way.
+26. As a keyboard nerd, I want the Karabiner build and the Hammerspoon setup helpers skipped when those apps aren't installed, so that a managed Mac without them doesn't fail the sync.
 27. As a Mac user, I want F1 to F12 to be standard function keys and the Fn key alone to do nothing, so that the printed media keys need Fn and nothing pops up by accident.
 28. As a Mac user, I want the key repeat fast, press-and-hold off, and smart quotes, dashes, periods and capitalisation off, so that typing code isn't fought by the OS.
 29. As a Mac user, I want natural scrolling off and swipe-between-pages off, so that scrolling matches my other Mac.
@@ -59,7 +59,7 @@ At the end it prints the short list of things macOS refuses to let a script do, 
 39. As a Dock user, I want the Dock to contain exactly an allow-list of apps plus a Downloads stack in fan view sorted by date added, so that Apple's default set is gone.
 40. As a dictation user, I want dictation enabled with the press-Control-twice shortcut and my three languages listed, so that speech-to-text is a double tap away.
 41. As a laptop user, I want the Mac to never sleep on the power adapter when the display is off, display sleep at my timings, and no dimming on battery, so that remote sessions and background jobs survive.
-42. As a laptop user, I want a best-effort attempt at turning off True Tone and auto-brightness, with a clear manual instruction if the attempt fails, so that the screen stops adapting.
+42. As a laptop user, I want auto-brightness turned off for every display, with a read-back and a clear manual instruction if the write didn't hold, so that the screen stops adapting. True Tone stays at its default.
 43. As an iTerm2 user, I want iTerm2 to load and save its preferences from a folder in the repo, so that profile, font and colours sync in both directions.
 44. As a Mac owner, I want a printed checklist of the steps macOS won't let a script do, so that I know exactly what's left after the bootstrap.
 45. As a Mac owner, I want every script safe to re-run, so that an interrupted bootstrap resumes with the same command.
@@ -75,7 +75,7 @@ At the end it prints the short list of things macOS refuses to let a script do, 
 - Bootstrap follows chezmoi's canonical pattern: the official installer, then `init --apply` with the built-in git enabled. The built-in git is required because a fresh Mac's `/usr/bin/git` is a stub that opens the Command Line Tools dialog and fails; chezmoi's automatic fallback doesn't trigger because the stub counts as present.
 - The built-in git clones over HTTPS only, so the repo stays public and contains no secrets by construction.
 - The existing GitHub repo `caillou/mac-setup` is renamed to `caillou/dotfiles`. GitHub redirects the old URL.
-- The chezmoi source directory is `~/repos/caillou/dotfiles` on every machine. The bootstrap passes it explicitly; the config template pins it so later commands need no flag. All personal repos that the setup touches live under `~/repos/caillou`: dotfiles, karabiner.ts, keyboard.
+- The chezmoi source directory is `~/repos/caillou/dotfiles` on every machine. The bootstrap passes it explicitly; the config template pins it so later commands need no flag. It is the only repo the setup needs: the Hammerspoon config is managed as files and the Karabiner source lives in a project directory inside it. The former `caillou/keyboard` and `caillou/karabiner.ts` repos are archived with a pointer to dotfiles; their history and the keyboard repo's test suite stay there.
 - chezmoi itself is listed in the Brewfile so Homebrew keeps it current; the installer-provided binary is purged after the first apply.
 - Re-sync is plain `chezmoi update`. No alias, no wrapper.
 
@@ -116,11 +116,20 @@ At the end it prints the short list of things macOS refuses to let a script do, 
 - Homebrew asdf (0.16 line, Go). Plugins nodejs and python, global versions pinned in the managed tool-versions file, legacy version files enabled. A change-triggered script adds plugins and installs the pinned versions.
 - Migration on the current Mac removes the sourcing of the git-clone install; the data directory with installed versions is kept and reused.
 
-### Keyboard projects
+### Hammerspoon
 
-- A run-once script clones karabiner.ts and keyboard into `~/repos/caillou` if absent. A change-triggered script runs `npm install` and the build in karabiner.ts, and `make install` in keyboard, whose installer already handles Homebrew deps, the Hammerspoon symlink and relaunch.
-- Both steps are guarded on the app bundle being present. The generated Karabiner JSON is not in the repo; Karabiner rewrites it. Karabiner must have been launched once so the target profile exists; this is on the manual checklist.
-- The Hammerspoon Spoons folder is never claimed by chezmoi; it is written at runtime.
+- `~/.hammerspoon` is managed directly by chezmoi as plain files: `init.lua`, `windows.lua` (the Ctrl+S window-layout modal), `status-message.lua` (on-screen overlay), and `setup.lua` (machine-setup helpers, below). No symlink, no installer, no Lua toolchain, no tests: the keyboard repo's space-fn engine, spec suite, Makefile, luarocks tree, lefthook, stylua and EmmyLua stubs are not carried over and remain in the archived repo.
+- `init.lua` is trimmed to: install the `hs` command line into `~/.local`, reload hotkey, a single change watcher on the config folder, `require` of the windows module, ready alert. The symlink-following watcher and the EmmyLua spoon are dropped. The two lines in the windows module that pause and resume space-fn are removed.
+- `~/.hammerspoon/Spoons` is never managed; Hammerspoon writes there at runtime.
+- `setup.lua` exposes functions callable from a script through the `hs` command line once Hammerspoon runs and has Accessibility: set the wallpaper on every screen through Hammerspoon's desktop-image API (no System Events, so no Automation prompt), and print the machine-setup status overlay. It is loaded on demand, not at startup. Further helpers (pointer-speed pane, dictation activation) are candidates, not commitments.
+- The wallpaper step in the defaults script calls this helper when Hammerspoon is running, and falls back to System Events otherwise.
+
+### Karabiner
+
+- The karabiner.ts source (one TypeScript file, package file, lockfile) lives in a project directory inside the dotfiles repo, excluded from the home directory by `.chezmoiignore`. A change-triggered script, hashed on the source, runs the install and build after asdf has provided node; the build writes the rules into Karabiner's own config file, preserving Karabiner's other settings. The generated JSON is never in the repo because Karabiner rewrites it.
+- The build targets Karabiner's "Default profile", which Karabiner creates on first launch, so no profile has to be created by hand. Karabiner still needs to have been launched once; the manual checklist says so.
+- Dependencies are pinned in the lockfile rather than tracking `latest`. Tooling choice (karabiner.ts versus alternatives) is confirmed by the research recorded in the notes.
+- The step is guarded on the Karabiner app being present.
 
 ### macOS defaults
 
@@ -133,7 +142,7 @@ One change-triggered script, plain POSIX sh, that quits System Settings first, w
 - Finder: new window target Downloads; extensions shown; status bar; folders first; no extension-change warning; no .DS_Store on network and USB volumes; internal drives hidden on the Desktop, external and removable shown; save and print panels expanded; save to disk rather than iCloud; Desktop icon view arranged by kind with the current icon size, grid spacing, text size and label position.
 - Window manager: click wallpaper to show desktop only in Stage Manager; desktop items hidden; widgets hidden on the Desktop.
 - Dock: autohide on with a 0.5 s delay; tile size 16; magnification on, large size 128; bottom; no recents; no launch animation; all four hot corners off.
-- Wallpaper: the system solid black, set through System Events to the black solid-colour image that ships with macOS.
+- Wallpaper: the system solid black. Set through the Hammerspoon setup helper (desktop-image API, no permission prompt) when Hammerspoon is running, else through System Events to the black solid-colour image that ships with macOS; written unconditionally because a system colour can't be read back.
 - Dictation: enabled, shortcut press Control twice, preferred languages en_US, fr_CH, de_CH. First activation consent and language model downloads are on the manual checklist.
 - Power, via pmset with sudo: on adapter never sleep, display sleep 10 minutes; on battery display sleep 15 minutes, no dimming.
 - Dropped from the old script: the Safari and Messages tweaks (need Full Disk Access, and the Do Not Track header is obsolete), quarantine disabling (a security setting and likely MDM policy), and the accessibility zoom keys (need Full Disk Access). Locale and language lists are not written.
@@ -152,13 +161,15 @@ One change-triggered script, plain POSIX sh, that quits System Settings first, w
 
 - A preferences folder in the repo. Two iTerm2 keys point iTerm2 at it and enable saving changes back on quit. Migration exports the current preferences into that folder. The old Ayu Dark colour file is kept there as reference.
 
-### Display settings, best effort
+### Display settings
 
-- True Tone and auto-brightness are stored in root's preferences keyed by display. A sudo script reads the plist on the target machine, locates the built-in display entry, sets both off, restarts the brightness daemon, reads back, and prints the manual instruction if the value didn't hold. The desired values are confirmed from the current Mac with one sudo read before implementation.
+- Auto-brightness is stored in root's CoreBrightness preferences as one `AutoBrightnessEnable` flag per display entry (confirmed on the personal Mac, where it is false). A sudo script sets the flag to false on every display entry, restarts the brightness daemon, reads back, and prints the manual instruction if the value didn't hold. Display identifiers differ per machine, so the script iterates the entries rather than hardcoding one.
+- True Tone has no key in that file on the personal Mac, meaning it was never toggled and sits at Apple's default, on. The setup leaves it alone.
+- The script never fails the apply.
 
 ### Manual-steps report
 
-- The last script prints a checklist: admin password prompts explained; Privacy & Security approvals for Karabiner and Hammerspoon (Input Monitoring, Accessibility, driver extension); Azure DevOps ssh key paste; App Store sign-in on personal Macs; Self Service requests on managed Macs; first dictation activation; pointer speed and display settings to verify; Karabiner first launch for the profile.
+- The last script prints a checklist: admin password prompts explained; Privacy & Security approvals for Karabiner and Hammerspoon (Input Monitoring, Accessibility, driver extension); Azure DevOps ssh key paste; App Store sign-in on personal Macs; Self Service requests on managed Macs; first dictation activation; pointer speed and auto-brightness to verify; Karabiner first launch.
 
 ### README
 
@@ -177,11 +188,11 @@ The README is the operating manual and is written together with the repo. Sectio
 
 ### Migration of the current Mac
 
-- One issue: rename the GitHub repo; move the local checkout to `~/repos/caillou/dotfiles`; move `~/repos/keyboard` to `~/repos/caillou/keyboard` and re-run its installer; adopt the current files into chezmoi; purge dead universal variables; switch asdf; export iTerm2 prefs; run the first apply and review the diff.
+- One issue: rename the GitHub repo; move the local checkout to `~/repos/caillou/dotfiles`; copy the three Hammerspoon files and the Karabiner source into the repo; archive `caillou/keyboard` and `caillou/karabiner.ts` on GitHub with a README pointer and remove their local checkouts; replace the `~/.hammerspoon/keyboard` symlink with the managed files; adopt the current dotfiles into chezmoi; purge dead universal variables; switch asdf; export iTerm2 prefs; run the first apply and review the diff.
 
 ### Ordering and idempotency
 
-- Scripts are numbered so the order is: Homebrew, packages, shell, git and ssh, asdf, keyboard projects, defaults, Dock, Downloads view, iTerm2, display, report. Every script is re-runnable. Change-triggered scripts embed hashes of the files they depend on.
+- Scripts are numbered so the order is: Homebrew, packages, shell, git and ssh, asdf, Karabiner build, defaults, Dock, Downloads view, iTerm2, display, report. Hammerspoon files are applied with the other dotfiles and need no script. Every script is re-runnable. Change-triggered scripts embed hashes of the files they depend on.
 
 ## Testing Decisions
 
@@ -191,7 +202,7 @@ A good test checks observable behaviour through the module's interface and never
 - The machine facts library gets bats tests with stubbed `profiles`, `ls` and `command`, covering managed and unmanaged, app present and absent, key set and unset.
 - The Brewfile and the defaults script get template render tests: chezmoi renders them with fake data for the four combinations of managed and personal, and the tests assert which casks and blocks appear. No installing.
 - Every shell script passes shellcheck. A GitHub Actions job on a macOS runner installs chezmoi, initialises from the checkout with fake config data, and runs a dry-run apply, catching template errors and script ordering mistakes on a fresh machine.
-- Prior art: the keyboard repo's busted suite and lefthook config are the model for "tests plus pre-commit lint" in a personal repo.
+- Prior art: the archived keyboard repo's busted suite and lefthook config are the model for "tests plus pre-commit lint" in a personal repo. The Lua files themselves are not unit-tested in dotfiles; the window-layout modal is verified by use.
 - Not tested automatically: the effect of defaults writes, the Homebrew install, and the Dock rebuild. Those are verified by hand on the new Mac after the first bootstrap, and the pointer-speed persistence across a reboot is checked then.
 
 ## Out of Scope
@@ -205,6 +216,8 @@ A good test checks observable behaviour through the module's interface and never
 - Locale, language and region settings, login items, Safari and Messages preferences.
 - Intel Macs and Linux. Homebrew paths assume Apple Silicon.
 - Automated package cleanup.
+- Space-fn and the Lua test suite; both remain in the archived keyboard repo.
+- True Tone; left at its default.
 
 ## Further Notes
 
