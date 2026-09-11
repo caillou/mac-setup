@@ -102,7 +102,7 @@ Desktop icons (`DesktopViewSettings.IconViewSettings`): arrangeBy kind; iconSize
 
 ### Window manager (`com.apple.WindowManager`)
 
-EnableStandardClickToShowDesktop 0; HideDesktop 1 (= hide items *in Stage Manager*, per nix-darwin's WindowManager catalogue); StandardHideDesktopIcons unset here (= desktop items shown; a 2026-09-11 screenshot of this Mac confirms files are visible top-right). Desired on all machines: StandardHideDesktopIcons 1 (items hidden), HideDesktop 1, StandardHideWidgets 1 (widgets hidden), StageManagerHideWidgets 0; AutoHide 0; EnableTiledWindowMargins 0; EnableTilingOptionAccelerator 0; AppWindowGroupingBehavior 1. Source: https://raw.githubusercontent.com/nix-darwin/nix-darwin/master/modules/system/defaults/WindowManager.nix
+EnableStandardClickToShowDesktop 0; HideDesktop 1 (= hide items *in Stage Manager*, per nix-darwin's WindowManager catalogue); StandardHideDesktopIcons unset here (= desktop items shown; a 2026-09-11 screenshot of this Mac confirms files are visible top-right). Desired on all machines: StandardHideDesktopIcons 1 (items hidden; applied on this Mac on 2026-09-11 with `defaults write com.apple.WindowManager StandardHideDesktopIcons -bool true && killall Finder`, verified by screenshot: icons gone), HideDesktop 1, StandardHideWidgets 1 (widgets hidden), StageManagerHideWidgets 0; AutoHide 0; EnableTiledWindowMargins 0; EnableTilingOptionAccelerator 0; AppWindowGroupingBehavior 1. Source: https://raw.githubusercontent.com/nix-darwin/nix-darwin/master/modules/system/defaults/WindowManager.nix
 
 ### Dock (`com.apple.dock`)
 
