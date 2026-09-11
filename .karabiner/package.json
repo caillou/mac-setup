@@ -1,0 +1,17 @@
+{
+  "name": "@caillou/karabiner",
+  "description": "Karabiner-Elements rules, generated from src/index.ts",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "build": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts",
+    "update": "npm update karabiner.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.1.3",
+    "karabiner.ts": "^1.38.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.0.4"
+  }
+}

@@ -1,5 +1,63 @@
 #!/bin/sh
 # Karabiner: builds the rules from the karabiner.ts source into Karabiner's config.
-# Filled in by "03. karabiner build".
 {{ template "facts.sh" . }}
+# The project lives in the repo, dot-prefixed, so chezmoi never treats it as a
+# dotfile. The build runs there and writes into Karabiner's own config file.
+SOURCE={{ printf "%s/.karabiner" .chezmoi.sourceDir | quote }}
+
+# karabiner.ts resolves this path itself, from the home directory; the script
+# only checks that it is there. Karabiner writes it on first launch.
+CONFIG="$HOME/.config/karabiner/karabiner.json"
+
+# The preamble puts the asdf shims on PATH, which is where node and npm come
+# from. This is the seam a test uses to point the script at a stub.
+NPM="${DOTFILES_NPM:-npm}"
+
+# Karabiner can arrive later: Self Service on the managed Mac, or a deliberate
+# install. A missing Karabiner is a skip, and the next sync tries again.
+if ! app_present "Karabiner-Elements.app"; then
+  echo "karabiner: Karabiner-Elements is not installed, skipping. Re-run the apply once it is."
+  exit 0
+fi
+
+# The build replaces the rules inside the config file Karabiner wrote and keeps
+# everything else in it, so the file has to exist first. It appears on first
+# launch, which the manual checklist asks for.
+if [ ! -f "$CONFIG" ]; then
+  echo "karabiner: Karabiner-Elements has never been launched, so $CONFIG does not"
+  echo "karabiner: exist yet. Launch it once; the next sync builds the rules."
+  exit 0
+fi
+
+# The rules file and the lockfile are the whole input to the build: same bytes,
+# same karabiner.json. The hash is stored only after a build succeeded, so a
+# matching hash is also the record of that success.
+hash="$(cat "$SOURCE/src/index.ts" "$SOURCE/package-lock.json" | shasum -a 256 | cut -d ' ' -f 1)"
+if hash_unchanged karabiner "$hash"; then
+  # Nothing to say on the common path: every apply runs this script.
+  exit 0
+fi
+
+if ! has_command "$NPM"; then
+  echo "karabiner: npm is not available yet (it comes from the asdf node);"
+  echo "karabiner: the next sync tries again."
+  exit 0
+fi
+
+# A build must never abort the apply: npm can fail on a flaky network, and a
+# broken rules file must not stop the rest of the sync. The hash stays
+# unstored, so the next sync retries.
+echo "karabiner: building the rules from $SOURCE"
+if ! (cd "$SOURCE" && "$NPM" ci </dev/null); then
+  echo "karabiner: npm ci failed; the next sync tries again"
+  exit 0
+fi
+
+if ! (cd "$SOURCE" && "$NPM" run build </dev/null); then
+  echo "karabiner: the build failed; the next sync tries again"
+  exit 0
+fi
+
+store_hash karabiner "$hash"
+echo "karabiner: rules written into $CONFIG"
 exit 0

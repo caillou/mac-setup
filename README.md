@@ -180,3 +180,16 @@ asdf set -u nodejs latest
 ```
 
 `asdf set -u` writes the version to `~/.tool-versions`, making it the global default. (It replaces `asdf global`, which was removed in asdf 0.16.)
+
+## Karabiner
+
+The Karabiner-Elements rules live in `.karabiner/src/index.ts` and are generated
+with [karabiner.ts](https://github.com/evan-liu/karabiner.ts). `chezmoi apply`
+runs the build whenever that file or the lockfile changed: it writes the rules
+into Karabiner's own `~/.config/karabiner/karabiner.json`, leaving the rest of
+that file alone, and skips the build until Karabiner is installed and has been
+launched once. The generated JSON is never in this repo.
+
+To iterate on the rules, run `npm run dev` in `.karabiner` and save the file:
+each save rebuilds and Karabiner reloads. `npm run update` bumps karabiner.ts;
+commit the lockfile it changes.
