@@ -266,6 +266,8 @@ During pointer research an agent wrote and applied test values for trackpad scal
 
 ## 8. Open items
 
+- Done 2026-09-11: repo renamed to `caillou/dotfiles` (the 2013 fork that held the name is now `caillou/dotfiles-2013`, private, archived); local checkout at `~/repos/caillou/dotfiles`.
+
 - Confirm True Tone and auto-brightness are off on this Mac (sudo read above) before implementing the display module.
 - Sort the package dump into core and groups; propose, then review.
 - Decide whether the self-patched Blex Nerd Font files are replaced by the `font-blex-mono-nerd-font` cask.
